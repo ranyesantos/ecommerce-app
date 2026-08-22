@@ -11,9 +11,9 @@ use Illuminate\Support\Facades\Route;
 uses(RefreshDatabase::class);
 
 beforeEach(function (): void {
-    Route::post('/_test/products', fn(StoreProductRequest $request) => response()->json($request->validated()));
+    Route::post('/_test/products', fn (StoreProductRequest $request) => response()->json($request->validated()));
 
-    Route::put('/_test/products/{product}', fn(UpdateProductRequest $request) => response()->json($request->validated()));
+    Route::put('/_test/products/{product}', fn (UpdateProductRequest $request) => response()->json($request->validated()));
 });
 
 it('normalizes product text before validating uniqueness', function (): void {

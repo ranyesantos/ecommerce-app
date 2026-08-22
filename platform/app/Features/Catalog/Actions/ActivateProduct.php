@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace App\Features\Catalog\Actions;
 
-use LogicException;
 use App\Features\Catalog\Models\Product;
+use LogicException;
 
 final class ActivateProduct
 {
