@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use App\Features\Catalog\Models\Product;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Number;
 
 uses(RefreshDatabase::class);
 
@@ -14,7 +15,37 @@ it('lists only normal products on the index', function (): void {
     $this->get(route('products.index'))
         ->assertOk()
         ->assertSee($product->sku)
+        ->assertSee($product->name)
+        ->assertSee(Number::currency($product->price_cents / 100, in: 'BRL', locale: 'pt_BR'))
+        ->assertSee($product->is_active ? 'Ativo' : 'Inativo')
         ->assertDontSee('TRASHED-1');
+});
+
+it('renders escaped product descriptions on the show screen', function (): void {
+    $product = Product::factory()->create([
+        'description' => '<script>alert("xss")</script>',
+    ]);
+
+    $this->get(route('products.show', $product))
+        ->assertOk()
+        ->assertSee(e($product->description), false)
+        ->assertDontSee($product->description, false)
+        ->assertDontSee('{!!', false);
+});
+
+it('renders only the allowed product fields on create and edit screens', function (): void {
+    $product = Product::factory()->create();
+
+    foreach ([route('products.create'), route('products.edit', $product)] as $url) {
+        $this->get($url)
+            ->assertOk()
+            ->assertSee('name="sku"', false)
+            ->assertSee('name="name"', false)
+            ->assertSee('name="description"', false)
+            ->assertSee('name="price_cents"', false)
+            ->assertDontSee('name="quantity"', false)
+            ->assertDontSee('name="is_active"', false);
+    }
 });
 
 it('serves the product show, create, and edit screens', function (): void {
@@ -107,12 +138,24 @@ it('soft deletes an inactive product and redirects to the index', function (): v
 
 it('lists only trashed products in the trash screen', function (): void {
     Product::factory()->create(['sku' => 'NORMAL-1']);
-    Product::factory()->trashed()->create(['sku' => 'TRASHED-1']);
+    $trashed = Product::factory()->trashed()->create(['sku' => 'TRASHED-1']);
 
     $this->get(route('products.trash.index'))
         ->assertOk()
         ->assertSee('TRASHED-1')
+        ->assertSee($trashed->deleted_at->format('Y-m-d'))
+        ->assertSee(route('products.trash.restore', $trashed), false)
+        ->assertSee('name="_method" value="PATCH"', false)
+        ->assertDontSee(route('products.destroy', $trashed), false)
         ->assertDontSee('NORMAL-1');
+});
+
+it('renders pagination when the product index has more than one page', function (): void {
+    Product::factory()->count(16)->create();
+
+    $this->get(route('products.index'))
+        ->assertOk()
+        ->assertSee('page=2', false);
 });
 
 it('restores a trashed product as inactive', function (): void {
