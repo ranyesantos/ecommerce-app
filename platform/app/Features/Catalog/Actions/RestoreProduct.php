@@ -10,7 +10,7 @@ use Illuminate\Support\Facades\DB;
 
 final class RestoreProduct
 {
-    public function __invoke(Product $product): Product
+    public function handle(Product $product): Product
     {
         if (! $product->trashed()) {
             throw (new ModelNotFoundException)->setModel(Product::class, [$product->getKey()]);

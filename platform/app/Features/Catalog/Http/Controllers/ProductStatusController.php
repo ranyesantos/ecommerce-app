@@ -13,7 +13,7 @@ final class ProductStatusController
 {
     public function activate(Product $product, ActivateProduct $activateProduct): RedirectResponse
     {
-        $activateProduct($product);
+        $activateProduct->handle($product);
 
         return to_route('products.show', $product)
             ->with('status', 'Produto ativado com sucesso.');
@@ -21,7 +21,7 @@ final class ProductStatusController
 
     public function deactivate(Product $product, DeactivateProduct $deactivateProduct): RedirectResponse
     {
-        $deactivateProduct($product);
+        $deactivateProduct->handle($product);
 
         return to_route('products.show', $product)
             ->with('status', 'Produto desativado com sucesso.');

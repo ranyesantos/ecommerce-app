@@ -12,7 +12,7 @@ use Illuminate\Support\Arr;
 final class CreateProduct
 {
     /** @param array<string, mixed> $attributes */
-    public function __invoke(array $attributes): Product
+    public function handle(array $attributes): Product
     {
         try {
             $product = new Product(Arr::only($attributes, ['sku', 'name', 'description', 'price_cents']));

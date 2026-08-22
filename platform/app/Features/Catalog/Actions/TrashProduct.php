@@ -9,7 +9,7 @@ use Illuminate\Support\Facades\DB;
 
 final class TrashProduct
 {
-    public function __invoke(Product $product): Product
+    public function handle(Product $product): Product
     {
         return DB::transaction(function () use ($product): Product {
             $product->forceFill(['is_active' => false])->save();

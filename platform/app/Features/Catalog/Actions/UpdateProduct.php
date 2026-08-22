@@ -12,7 +12,7 @@ use Illuminate\Support\Arr;
 final class UpdateProduct
 {
     /** @param array<string, mixed> $attributes */
-    public function __invoke(Product $product, array $attributes): Product
+    public function handle(Product $product, array $attributes): Product
     {
         try {
             $product->update(Arr::only($attributes, ['sku', 'name', 'description', 'price_cents']));

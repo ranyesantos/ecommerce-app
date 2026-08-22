@@ -20,7 +20,7 @@ final class ProductTrashController
 
     public function restore(Product $product, RestoreProduct $restoreProduct): RedirectResponse
     {
-        $restoreProduct($product);
+        $restoreProduct->handle($product);
 
         return to_route('products.edit', $product)
             ->with('status', 'Produto restaurado com sucesso.');

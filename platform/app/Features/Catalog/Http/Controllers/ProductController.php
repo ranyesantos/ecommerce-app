@@ -29,7 +29,7 @@ final class ProductController
 
     public function store(StoreProductRequest $request, CreateProduct $createProduct): RedirectResponse
     {
-        $product = $createProduct($request->validated());
+        $product = $createProduct->handle($request->validated());
 
         return to_route('products.show', $product)
             ->with('status', 'Produto criado com sucesso.');
@@ -47,7 +47,7 @@ final class ProductController
 
     public function update(UpdateProductRequest $request, Product $product, UpdateProduct $updateProduct): RedirectResponse
     {
-        $updateProduct($product, $request->validated());
+        $updateProduct->handle($product, $request->validated());
 
         return to_route('products.show', $product)
             ->with('status', 'Produto atualizado com sucesso.');
@@ -55,7 +55,7 @@ final class ProductController
 
     public function destroy(Product $product, TrashProduct $trashProduct): RedirectResponse
     {
-        $trashProduct($product);
+        $trashProduct->handle($product);
 
         return to_route('products.index')
             ->with('status', 'Produto movido para a lixeira.');

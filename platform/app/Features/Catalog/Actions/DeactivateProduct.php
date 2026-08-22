@@ -8,7 +8,7 @@ use App\Features\Catalog\Models\Product;
 
 final class DeactivateProduct
 {
-    public function __invoke(Product $product): Product
+    public function handle(Product $product): Product
     {
         $product->forceFill(['is_active' => false])->save();
 

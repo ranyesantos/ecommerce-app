@@ -15,7 +15,7 @@ uses(RefreshDatabase::class);
 it('activates an inactive product', function (): void {
     $product = Product::factory()->create();
 
-    $activated = resolve(ActivateProduct::class)($product);
+    $activated = resolve(ActivateProduct::class)->handle($product);
 
     expect($activated->is_active)->toBeTrue();
 });
@@ -23,7 +23,7 @@ it('activates an inactive product', function (): void {
 it('deactivates an active product', function (): void {
     $product = Product::factory()->active()->create();
 
-    $deactivated = resolve(DeactivateProduct::class)($product);
+    $deactivated = resolve(DeactivateProduct::class)->handle($product);
 
     expect($deactivated->is_active)->toBeFalse()
         ->and($deactivated->trashed())->toBeFalse();
@@ -32,14 +32,14 @@ it('deactivates an active product', function (): void {
 it('rejects activating a trashed product', function (): void {
     $product = Product::factory()->trashed()->create();
 
-    expect(fn () => resolve(ActivateProduct::class)($product))
+    expect(fn () => resolve(ActivateProduct::class)->handle($product))
         ->toThrow(LogicException::class, 'Um produto na lixeira não pode ser ativado.');
 });
 
 it('trashes a product as inactive and hides it from normal queries', function (): void {
     $product = Product::factory()->active()->create();
 
-    $trashed = resolve(TrashProduct::class)($product);
+    $trashed = resolve(TrashProduct::class)->handle($product);
 
     expect($trashed->is_active)->toBeFalse()
         ->and($trashed->trashed())->toBeTrue()
@@ -48,9 +48,9 @@ it('trashes a product as inactive and hides it from normal queries', function ()
 });
 
 it('restores a product as inactive', function (): void {
-    $trashed = resolve(TrashProduct::class)(Product::factory()->active()->create());
+    $trashed = resolve(TrashProduct::class)->handle(Product::factory()->active()->create());
 
-    $restored = resolve(RestoreProduct::class)($trashed);
+    $restored = resolve(RestoreProduct::class)->handle($trashed);
 
     expect($restored->trashed())->toBeFalse()
         ->and($restored->is_active)->toBeFalse();
@@ -64,7 +64,7 @@ it('rejects restoring an active product without changing its state', function ()
     ]);
     $product->forceFill(['is_active' => true])->save();
 
-    expect(fn () => resolve(RestoreProduct::class)($product))
+    expect(fn () => resolve(RestoreProduct::class)->handle($product))
         ->toThrow(ModelNotFoundException::class);
 
     expect($product->fresh()->is_active)->toBeTrue()
