@@ -18,7 +18,7 @@ return new class extends Migration
             $table->string('name');
             $table->text('description')->nullable();
             $table->integer('price_cents');
-            $table->boolean('is_active')->default(false);
+            $table->boolean('is_active')->default(value: false);
             $table->timestampTz('created_at');
             $table->timestampTz('updated_at');
             $table->softDeletesTz();

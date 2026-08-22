@@ -24,7 +24,7 @@ class ProductFactory extends Factory
     {
         return [
             'sku' => Str::upper(fake()->unique()->bothify('SKU-####-??')),
-            'name' => fake()->words(3, true),
+            'name' => fake()->words(3, asText: true),
             'description' => fake()->optional()->sentence(),
             'price_cents' => fake()->numberBetween(1, 1_000_000),
             'is_active' => false,

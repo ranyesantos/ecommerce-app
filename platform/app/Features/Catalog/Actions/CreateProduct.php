@@ -19,8 +19,8 @@ final class CreateProduct
             $product->forceFill(['is_active' => false])->save();
 
             return $product;
-        } catch (QueryException $exception) {
-            ProductSkuConflict::rethrow($exception);
+        } catch (QueryException $queryException) {
+            ProductSkuConflict::rethrow($queryException);
         }
     }
 }

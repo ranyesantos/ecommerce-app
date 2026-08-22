@@ -37,12 +37,12 @@ final class ProductController
 
     public function show(Product $product): View
     {
-        return view('catalog.products.show', compact('product'));
+        return view('catalog.products.show', ['product' => $product]);
     }
 
     public function edit(Product $product): View
     {
-        return view('catalog.products.edit', compact('product'));
+        return view('catalog.products.edit', ['product' => $product]);
     }
 
     public function update(UpdateProductRequest $request, Product $product, UpdateProduct $updateProduct): RedirectResponse

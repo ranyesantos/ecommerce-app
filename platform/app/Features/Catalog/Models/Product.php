@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Features\Catalog\Models;
 
-use Database\Factories\ProductFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
@@ -16,9 +15,9 @@ use Illuminate\Support\Str;
 #[Fillable(['sku', 'name', 'description', 'price_cents'])]
 class Product extends Model
 {
-    /** @use HasFactory<ProductFactory> */
-    use HasFactory, HasUuids, SoftDeletes;
-
+    use HasFactory;
+    use HasUuids;
+    use SoftDeletes;
     protected function casts(): array
     {
         return [

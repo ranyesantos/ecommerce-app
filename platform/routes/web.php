@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 use App\Features\Catalog\Http\Controllers\ProductController;
 use App\Features\Catalog\Http\Controllers\ProductStatusController;
 use App\Features\Catalog\Http\Controllers\ProductTrashController;

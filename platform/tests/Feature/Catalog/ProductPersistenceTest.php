@@ -11,7 +11,7 @@ use Illuminate\Validation\ValidationException;
 uses(RefreshDatabase::class);
 
 it('creates products inactive even when active state is submitted', function (): void {
-    $product = app(CreateProduct::class)(validProductAttributes(['is_active' => true]));
+    $product = resolve(CreateProduct::class)(validProductAttributes(['is_active' => true]));
 
     expect($product->is_active)->toBeFalse();
 });
@@ -19,7 +19,7 @@ it('creates products inactive even when active state is submitted', function ():
 it('preserves the existing active state when updating a product', function (): void {
     $active = Product::factory()->active()->create();
 
-    $updated = app(UpdateProduct::class)($active, validProductAttributes(['name' => 'Novo nome']));
+    $updated = resolve(UpdateProduct::class)($active, validProductAttributes(['name' => 'Novo nome']));
 
     expect($updated->name)->toBe('Novo nome')
         ->and($updated->is_active)->toBeTrue();
@@ -28,7 +28,7 @@ it('preserves the existing active state when updating a product', function (): v
 it('translates a duplicate product sku into a validation exception', function (): void {
     Product::factory()->create(['sku' => 'DUPLICATE']);
 
-    expect(fn () => app(CreateProduct::class)(validProductAttributes(['sku' => 'DUPLICATE'])))
+    expect(fn () => resolve(CreateProduct::class)(validProductAttributes(['sku' => 'DUPLICATE'])))
         ->toThrow(ValidationException::class);
 });
 

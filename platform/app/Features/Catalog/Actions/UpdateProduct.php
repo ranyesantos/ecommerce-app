@@ -18,8 +18,8 @@ final class UpdateProduct
             $product->update(Arr::only($attributes, ['sku', 'name', 'description', 'price_cents']));
 
             return $product->refresh();
-        } catch (QueryException $exception) {
-            ProductSkuConflict::rethrow($exception);
+        } catch (QueryException $queryException) {
+            ProductSkuConflict::rethrow($queryException);
         }
     }
 }
