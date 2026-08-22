@@ -7,6 +7,7 @@ use App\Features\Catalog\Actions\DeactivateProduct;
 use App\Features\Catalog\Actions\RestoreProduct;
 use App\Features\Catalog\Actions\TrashProduct;
 use App\Features\Catalog\Models\Product;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 
 uses(RefreshDatabase::class);
@@ -53,4 +54,19 @@ it('restores a product as inactive', function (): void {
 
     expect($restored->trashed())->toBeFalse()
         ->and($restored->is_active)->toBeFalse();
+});
+
+it('rejects restoring an active product without changing its state', function (): void {
+    $product = Product::query()->create([
+        'sku' => 'ACTIVE-RESTORE-1',
+        'name' => 'Active product',
+        'price_cents' => 100,
+    ]);
+    $product->forceFill(['is_active' => true])->save();
+
+    expect(fn () => resolve(RestoreProduct::class)($product))
+        ->toThrow(ModelNotFoundException::class);
+
+    expect($product->fresh()->is_active)->toBeTrue()
+        ->and($product->fresh()->trashed())->toBeFalse();
 });

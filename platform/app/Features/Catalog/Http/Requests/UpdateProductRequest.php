@@ -18,12 +18,27 @@ class UpdateProductRequest extends FormRequest
 
     protected function prepareForValidation(): void
     {
-        $description = trim((string) $this->input('description', ''));
+        $sku = $this->input('sku', '');
+        $name = $this->input('name', '');
+        $description = $this->input('description', '');
+
+        if (is_string($sku)) {
+            $sku = Str::upper(trim($sku));
+        }
+
+        if (is_string($name)) {
+            $name = trim($name);
+        }
+
+        if (is_string($description)) {
+            $description = trim($description);
+            $description = $description === '' ? null : $description;
+        }
 
         $this->merge([
-            'sku' => Str::upper(trim((string) $this->input('sku', ''))),
-            'name' => trim((string) $this->input('name', '')),
-            'description' => $description === '' ? null : $description,
+            'sku' => $sku,
+            'name' => $name,
+            'description' => $description,
         ]);
     }
 

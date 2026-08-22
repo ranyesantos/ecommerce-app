@@ -28,6 +28,32 @@ it('normalizes product text before validating uniqueness', function (): void {
     ]);
 });
 
+it('rejects malformed arrays in the store request', function (): void {
+    $this->postJson('/_test/products', validProductPayload([
+        'sku' => ['ABC-123'],
+        'name' => ['Produto'],
+        'description' => ['Descrição simples'],
+    ]))
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors(['sku', 'name', 'description']);
+});
+
+it('rejects malformed arrays in the update request', function (): void {
+    $product = Product::query()->create([
+        'sku' => 'UPDATE-ARRAY-1',
+        'name' => 'Update product',
+        'price_cents' => 100,
+    ]);
+
+    $this->putJson('/_test/products/'.$product->id, validProductPayload([
+        'sku' => ['ABC-123'],
+        'name' => ['Produto'],
+        'description' => ['Descrição simples'],
+    ]))
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors(['sku', 'name', 'description']);
+});
+
 it('rejects a duplicate sku case-insensitively, including trashed products', function (): void {
     Product::factory()->trashed()->create(['sku' => 'ABC-123']);
 

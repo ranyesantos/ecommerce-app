@@ -172,6 +172,24 @@ it('restores a trashed product as inactive', function (): void {
     ]);
 });
 
+it('returns not found when restoring an active product', function (): void {
+    $product = Product::query()->create([
+        'sku' => 'HTTP-ACTIVE-RESTORE-1',
+        'name' => 'HTTP active product',
+        'price_cents' => 100,
+    ]);
+    $product->forceFill(['is_active' => true])->save();
+
+    $this->patch(route('products.trash.restore', $product))
+        ->assertNotFound();
+
+    $this->assertDatabaseHas('products', [
+        'id' => $product->id,
+        'is_active' => true,
+        'deleted_at' => null,
+    ]);
+});
+
 it('does not bind trashed products on normal routes but does on restore', function (): void {
     $product = Product::factory()->trashed()->create();
 
