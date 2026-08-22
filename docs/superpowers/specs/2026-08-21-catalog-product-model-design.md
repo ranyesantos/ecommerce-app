@@ -118,7 +118,6 @@ unit_price_cents preço unitário negociado
 
 Os testes Pest devem cobrir:
 
-- geração de UUIDv7;
 - criação de produto inativo;
 - normalização do SKU para maiúsculas;
 - rejeição de SKU duplicado com capitalização diferente;
@@ -131,7 +130,6 @@ Os testes Pest devem cobrir:
 - ausência de excluídos nas consultas normais;
 - restauração para o estado inativo;
 - reserva do SKU durante o soft delete;
-- ausência de qualquer leitura ou gravação de quantidade pelo catálogo.
 
 Restrições específicas do PostgreSQL terão testes de integração no banco real. SQLite não será considerado prova suficiente dessas garantias.
 
