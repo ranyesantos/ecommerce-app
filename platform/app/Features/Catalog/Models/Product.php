@@ -6,6 +6,7 @@ namespace App\Features\Catalog\Models;
 
 use Database\Factories\ProductFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Attributes\UseFactory;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -14,6 +15,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Str;
 
 #[Fillable(['sku', 'name', 'description', 'price_cents'])]
+#[UseFactory(factoryClass: ProductFactory::class)]
 class Product extends Model
 {
     /** @phpstan-use HasFactory<ProductFactory> */
