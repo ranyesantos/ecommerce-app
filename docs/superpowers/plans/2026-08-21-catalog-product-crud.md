@@ -1,14 +1,16 @@
 # Catalog Product CRUD Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. A marca `[x]` indica implementação evidenciada no código ou no histórico; `[ ]` identifica uma verificação que não foi executada nesta revisão documental.
 
 **Goal:** Implementar o CRUD web inicial de produtos no Laravel, com UUIDv7, SKU normalizado e único, preço inteiro em centavos, ativação explícita e lixeira com soft delete.
 
-**Architecture:** Manter o catálogo em uma feature slice sob `App\Features\Catalog`, com Form Requests na borda HTTP, Actions para escritas e transições, Eloquent como persistência e Blade para a interface server-side. O PostgreSQL será a fonte definitiva das invariantes concorrentes e os testes Pest usarão uma base PostgreSQL real.
+**Architecture:** Manter o catálogo em uma feature slice sob `App\Features\Catalog`, com Form Requests na borda HTTP, Actions para escritas e transições, Eloquent como persistência e Blade para a interface server-side. No fluxo HTTP suportado, os Form Requests normalizam e validam antes de os controllers chamarem as Actions; as Actions assumem atributos vindos de `validated()` e não repetem toda a validação; os mutators do modelo normalizam os campos textuais. As constraints existentes no PostgreSQL permanecem como salvaguardas adicionais para estados inválidos ou conflitos que escapem desse fluxo. Os testes Pest usam PostgreSQL como infraestrutura do app, sem testar o mecanismo interno do banco.
 
 **Tech Stack:** PHP 8.5, Laravel 13.17, PostgreSQL, Blade, Tailwind CSS 4, Pest 5, Pint 1.30, Larastan 3.10 e Rector 2.6.
 
 **Spec:** [`docs/superpowers/specs/2026-08-21-catalog-product-model-design.md`](../specs/2026-08-21-catalog-product-model-design.md)
+
+**Status:** Implementado no estado atual do repositório. As tarefas e os commits abaixo preservam a sequência histórica; smoke tests e quality gates só ficam marcados quando há evidência registrada nesta revisão ou no histórico.
 
 ## Global Constraints
 
@@ -18,11 +20,25 @@
 - Não adicionar quantidade, estoque, variantes, moeda configurável, custo, histórico de preço, autenticação, API pública ou exclusão física.
 - Não aceitar `is_active` nos formulários de criação/edição. Ativação, desativação, exclusão e restauração são comandos separados.
 - Manter `price_cents` como inteiro recebido pelo formulário e armazenado em BRL; não introduzir parser decimal nesta etapa.
-- A unicidade de SKU inclui registros com soft delete. Não usar `withoutTrashed()` na regra `unique`.
-- Testes que provam `CHECK constraints` devem rodar em PostgreSQL; SQLite não satisfaz a aceitação.
+- No fluxo HTTP suportado, a regra de unicidade de SKU inclui registros com soft delete. Não usar `withoutTrashed()` na regra `unique`.
+- Usar PostgreSQL nos testes Pest como infraestrutura real do app (`RefreshDatabase`), sem testes diretos de `CHECK`, `UNIQUE` ou de qualquer outro mecanismo interno do banco.
+- Manter responsabilidades explícitas: Form Requests validam o fluxo HTTP, Actions operam sobre dados já validados, mutators normalizam os campos textuais e Actions de ciclo de vida aplicam as transições suportadas. As constraints existentes são salvaguardas adicionais, não prova de que todo caminho de escrita passe pelas mesmas validações.
 - Preservar `application.md`, atualmente não rastreado e fora do escopo.
 - Usar `php artisan make:* --no-interaction` quando houver generator adequado e `apply_patch` para completar/mover o conteúdo.
 - Antes de cada commit PHP, executar o teste focal e `vendor/bin/pint --dirty --format agent`.
+
+## Histórico de implementação preservado
+
+- `e0d6036` — configurou PostgreSQL para desenvolvimento e testes.
+- `780ebaa` — adicionou persistência do produto, factory e migration.
+- `cd88412` — adicionou a validação de entrada na aplicação; os testes específicos dessa camada foram removidos posteriormente por serem obsoletos.
+- `e81a967` — adicionou as Actions de escrita e a tradução de conflitos de SKU.
+- `1dd2d39` — adicionou as transições de ciclo de vida.
+- `fa42e7a` e `9e8ff84` — adicionaram fluxos HTTP, rotas e telas Blade.
+- `ee2924b` — documentou a operação do projeto.
+- `3f0e55f`, `1d7320f`, `688be1c`, `b0c2838` e `a08160c` — endureceram restauração/validação, factory, tipos, Rector e dependências.
+- `d3cbe40` — substituiu as chamadas invocáveis por métodos `handle()` nas Actions e nos consumidores.
+- `6261a5f` — removeu os testes obsoletos de validação e de constraints; não recriar esses arquivos.
 
 ## File Structure
 
@@ -61,10 +77,8 @@ platform/
 │   └── layouts/app.blade.php
 ├── tests/Feature/Catalog/
 │   ├── ProductCrudTest.php
-│   ├── ProductDatabaseConstraintsTest.php
 │   ├── ProductLifecycleTest.php
-│   ├── ProductPersistenceTest.php
-│   └── ProductValidationTest.php
+│   └── ProductPersistenceTest.php
 ├── compose.yaml
 ├── phpunit.xml
 ├── .env.example
@@ -86,7 +100,7 @@ platform/
 - Consumes: Docker Compose; environment variables `DB_HOST`, `DB_PORT`, `DB_DATABASE`, `DB_USERNAME`, `DB_PASSWORD`.
 - Produces: PostgreSQL databases `catalog_db` and `catalog_db_testing`; Pest connection `pgsql` against `catalog_db_testing`.
 
-- [ ] **Step 1: Define the two PostgreSQL databases**
+- [x] **Step 1: Define the two PostgreSQL databases**
 
 Create `infra/docker/postgres/init-test-database.sql`:
 
@@ -119,7 +133,7 @@ volumes:
   catalog_db_data:
 ```
 
-- [ ] **Step 2: Make PostgreSQL the documented local default**
+- [x] **Step 2: Make PostgreSQL the documented local default**
 
 Replace the SQLite block in `.env.example` with:
 
@@ -144,7 +158,7 @@ In `phpunit.xml`, replace the SQLite variables with:
 <env name="DB_URL" value=""/>
 ```
 
-- [ ] **Step 3: Start and smoke-test the database**
+- [ ] **Step 3: Smoke-test Docker — não executado nesta máquina**
 
 Run:
 
@@ -161,9 +175,11 @@ $env:DB_PASSWORD = 'catalog'
 php artisan migrate:fresh --force
 ```
 
-Expected: PostgreSQL reports `accepting connections`; the scaffold migrations complete in `catalog_db_testing`.
+Success criteria when executed: PostgreSQL reports `accepting connections`; the scaffold migrations complete in `catalog_db_testing`.
 
-- [ ] **Step 4: Commit the environment boundary**
+Status nesta revisão: **NÃO EXECUTADO nesta máquina**. O projeto foi usado com PostgreSQL local em `127.0.0.1:5432`, inclusive com `catalog_db_testing` como infraestrutura de testes; isso não comprova o smoke test do serviço Docker Compose.
+
+- [x] **Step 4: Commit the environment boundary**
 
 ```powershell
 git add platform/compose.yaml platform/infra/docker/postgres/init-test-database.sql platform/.env.example platform/phpunit.xml
@@ -172,22 +188,21 @@ git commit -m "chore: configure PostgreSQL for catalog development"
 
 ---
 
-### Task 2: Add the product persistence model and database invariants
+### Task 2: Add the product persistence model and application invariants
 
 **Files:**
-- Create: `platform/tests/Feature/Catalog/ProductPersistenceTest.php`
-- Create: `platform/tests/Feature/Catalog/ProductDatabaseConstraintsTest.php`
+- Modify: `platform/tests/Feature/Catalog/ProductPersistenceTest.php`
 - Create: `platform/app/Features/Catalog/Models/Product.php`
 - Create: `platform/database/factories/ProductFactory.php`
 - Create: `platform/database/migrations/*_create_products_table.php`
 
 **Interfaces:**
-- Consumes: `Product::factory()->create(array $attributes = [])` and direct PostgreSQL writes.
-- Produces: `Product` with UUIDv7 string key, normalized scalar attributes, soft-delete scope and database constraints `products_sku_unique`, `products_price_cents_positive` and `products_deleted_inactive`.
+- Consumes: `Product::factory()->create(array $attributes = [])` through the application API.
+- Produces: `Product` with UUIDv7 string key, normalized scalar attributes and soft-delete scope. The migration's existing PostgreSQL constraints remain defense-in-depth only; application code must remain correct without testing their internal mechanism.
 
-- [ ] **Step 1: Write failing persistence tests**
+- [x] **Step 1: Record the current persistence and application-level write tests**
 
-Create `ProductPersistenceTest.php` using `RefreshDatabase` and cover these exact observations:
+The current `ProductPersistenceTest.php` uses `RefreshDatabase` and covers these exact observations:
 
 ```php
 it('creates a product inactive and normalizes its text fields', function (): void {
@@ -218,15 +233,15 @@ it('hides soft deleted products from normal queries', function (): void {
 
 Do not add a test dedicated to UUIDv7 generation: the revised spec removed that redundant case, while the model contract still requires `HasUuids`.
 
-- [ ] **Step 2: Run the focused test and confirm the expected failure**
+- [x] **Step 2: Verify persistence and write actions in the current full suite**
 
 ```powershell
 php artisan test --compact tests/Feature/Catalog/ProductPersistenceTest.php
 ```
 
-Expected: failure because `App\Features\Catalog\Models\Product` does not exist.
+Current evidence: covered by `php artisan test --compact`, which passed **28/28 tests with 104 assertions** against the local PostgreSQL test database.
 
-- [ ] **Step 3: Generate and implement the migration**
+- [x] **Step 3: Generate and implement the migration**
 
 Run:
 
@@ -234,7 +249,7 @@ Run:
 php artisan make:migration create_products_table --create=products --no-interaction
 ```
 
-Implement `up()` with explicit timezone-aware, non-null timestamps and named PostgreSQL checks:
+Implement `up()` with explicit timezone-aware, non-null timestamps. Keep the existing named PostgreSQL constraints as defense-in-depth, not as the source of business behavior or a dedicated test target:
 
 ```php
 Schema::create('products', function (Blueprint $table): void {
@@ -255,7 +270,7 @@ DB::statement('ALTER TABLE products ADD CONSTRAINT products_deleted_inactive CHE
 
 `down()` must call `Schema::dropIfExists('products')`.
 
-- [ ] **Step 4: Implement the model and factory**
+- [x] **Step 4: Implement the model and factory**
 
 `Product` must use `HasFactory<ProductFactory>`, `HasUuids` and `SoftDeletes`, declare `#[Fillable(['sku', 'name', 'description', 'price_cents'])]`, cast `price_cents` to `integer` and `is_active` to `boolean`, and expose these mutators:
 
@@ -300,48 +315,20 @@ return [
 
 Add `active(): static` and `trashed(): static` factory states. `trashed()` must set both `is_active => false` and `deleted_at => now()`.
 
-- [ ] **Step 5: Prove the PostgreSQL constraints directly**
-
-Create `ProductDatabaseConstraintsTest.php` with `RefreshDatabase`. Use `DB::table('products')->insert(...)` so model validation cannot mask the database behavior. Add three cases:
-
-```php
-it('rejects non-positive prices at the database boundary', function (int $price): void {
-    expect(fn () => insertProduct(['price_cents' => $price]))
-        ->toThrow(QueryException::class);
-})->with([0, -1]);
-
-it('rejects an active soft deleted product at the database boundary', function (): void {
-    expect(fn () => insertProduct([
-        'is_active' => true,
-        'deleted_at' => now(),
-    ]))->toThrow(QueryException::class);
-});
-
-it('reserves the sku of a soft deleted product', function (): void {
-    Product::factory()->trashed()->create(['sku' => 'RESERVED-1']);
-
-    expect(fn () => Product::factory()->create(['sku' => 'RESERVED-1']))
-        ->toThrow(QueryException::class);
-});
-```
-
-Define a file-local `insertProduct(array $overrides = []): void` helper that merges a fresh `Str::uuid7()`, unique uppercase SKU, name, positive price, inactive state and `now()` timestamps.
-
-- [ ] **Step 6: Verify and commit persistence**
+- [x] **Step 6: Preserve the historical persistence commit**
 
 ```powershell
-php artisan test --compact tests/Feature/Catalog/ProductPersistenceTest.php tests/Feature/Catalog/ProductDatabaseConstraintsTest.php
-vendor/bin/pint --dirty --format agent
-git add platform/app/Features/Catalog/Models/Product.php platform/database/factories/ProductFactory.php platform/database/migrations platform/tests/Feature/Catalog/ProductPersistenceTest.php platform/tests/Feature/Catalog/ProductDatabaseConstraintsTest.php
+git add platform/app/Features/Catalog/Models/Product.php platform/database/factories/ProductFactory.php platform/database/migrations platform/tests/Feature/Catalog/ProductPersistenceTest.php
 git commit -m "feat: add catalog product persistence"
 ```
+
+Historical evidence: `780ebaa`. Current evidence: the persistence cases are covered by the passing full suite (**28/28 tests, 104 assertions**).
 
 ---
 
 ### Task 3: Validate and normalize product form input
 
 **Files:**
-- Create: `platform/tests/Feature/Catalog/ProductValidationTest.php`
 - Create: `platform/app/Features/Catalog/Rules/PlainText.php`
 - Create: `platform/app/Features/Catalog/Http/Requests/StoreProductRequest.php`
 - Create: `platform/app/Features/Catalog/Http/Requests/UpdateProductRequest.php`
@@ -350,43 +337,11 @@ git commit -m "feat: add catalog product persistence"
 - Consumes: HTTP fields `sku`, `name`, `description`, `price_cents`; optional route-bound `Product` on update.
 - Produces: `validated(): array{sku: string, name: string, description: ?string, price_cents: int}`; validation errors keyed by the submitted field.
 
-- [ ] **Step 1: Write failing validation tests through temporary test routes**
+- [x] **Step 1: Implement application-side normalization and validation**
 
-In `ProductValidationTest.php`, register POST and PUT routes inside `beforeEach()` whose closures type-hint the corresponding Form Request and return `response()->json($request->validated())`. Cover:
+Implement the existing Form Requests and `PlainText` rule. Do not create a separate validation test file: `ProductCrudTest.php` cobre hoje erros HTTP de nome obrigatório e preço não positivo, enquanto `ProductPersistenceTest.php` cobre a normalização feita pelos mutators. A regra `PlainText` existe no código, mas a suíte atual não testa a rejeição de HTML na entrada; o teste de CRUD cobre somente a saída HTML escapada. Os testes dedicados removidos não devem ser recriados.
 
-- lowercase and outer whitespace become `ABC-123` before uniqueness validation;
-- duplicate SKU is rejected case-insensitively, including when the existing product is trashed;
-- update ignores the current product but not another product;
-- SKU rejects spaces, accents, dots and `/`, and accepts only `[A-Z0-9_-]` after normalization;
-- `name` is required and at most 255 characters;
-- blank description becomes `null`;
-- description containing an HTML tag is rejected;
-- `price_cents` rejects zero, negative, decimal and non-numeric values;
-- submitted `is_active` is prohibited.
-
-Use assertions such as:
-
-```php
-$this->postJson('/_test/products', validProductPayload([
-    'sku' => '  abc-123  ',
-    'description' => '   ',
-]))->assertOk()->assertExactJson([
-    'sku' => 'ABC-123',
-    'name' => 'Produto',
-    'description' => null,
-    'price_cents' => 1990,
-]);
-```
-
-- [ ] **Step 2: Confirm the Form Requests are missing**
-
-```powershell
-php artisan test --compact tests/Feature/Catalog/ProductValidationTest.php
-```
-
-Expected: failure resolving `StoreProductRequest`.
-
-- [ ] **Step 3: Implement the plain-text rule**
+- [x] **Step 2: Implement the plain-text rule**
 
 Implement `PlainText implements ValidationRule`:
 
@@ -399,7 +354,7 @@ public function validate(string $attribute, mixed $value, Closure $fail): void
 }
 ```
 
-- [ ] **Step 4: Implement both Form Requests**
+- [x] **Step 3: Implement both Form Requests**
 
 Both requests return `true` from `authorize()` and normalize the same fields in `prepareForValidation()`:
 
@@ -433,14 +388,14 @@ Rule::unique('products', 'sku')->ignore($this->route('product'))
 
 Add Portuguese messages for `sku.regex`, `sku.unique`, `price_cents.integer`, `price_cents.min` and `is_active.prohibited`.
 
-- [ ] **Step 5: Verify and commit input validation**
+- [x] **Step 4: Preserve the historical input-validation commit**
 
 ```powershell
-php artisan test --compact tests/Feature/Catalog/ProductValidationTest.php
-vendor/bin/pint --dirty --format agent
-git add platform/app/Features/Catalog/Http/Requests platform/app/Features/Catalog/Rules platform/tests/Feature/Catalog/ProductValidationTest.php
+git add platform/app/Features/Catalog/Http/Requests platform/app/Features/Catalog/Rules
 git commit -m "feat: validate catalog product input"
 ```
+
+Historical evidence: `cd88412`. The dedicated validation tests were removed later by `6261a5f`; no replacement test file is part of the current suite.
 
 ---
 
@@ -453,35 +408,35 @@ git commit -m "feat: validate catalog product input"
 - Create: `platform/app/Features/Catalog/Support/ProductSkuConflict.php`
 
 **Interfaces:**
-- Consumes: `CreateProduct::__invoke(array $attributes): Product`; `UpdateProduct::__invoke(Product $product, array $attributes): Product`.
-- Produces: persisted, refreshed `Product`; a PostgreSQL `23505` on `products_sku_unique` becomes `ValidationException` for `sku`; unrelated `QueryException` is rethrown unchanged.
+- Consumes: `CreateProduct::handle(array $attributes): Product`; `UpdateProduct::handle(Product $product, array $attributes): Product`.
+- Produces: persisted, refreshed `Product`; quando PostgreSQL retorna `23505` para `products_sku_unique`, `ProductSkuConflict` traduz o conflito em `ValidationException` para `sku`; outras `QueryException` são relançadas. O teste atual cobre duplicidade sequencial, não uma corrida concorrente.
 
-- [ ] **Step 1: Add failing action tests**
+- [x] **Step 1: Record the current action tests**
 
-Add cases proving:
+The current `ProductPersistenceTest.php` covers creation state, update state and a sequential duplicate SKU:
 
 ```php
-$product = app(CreateProduct::class)(validProductAttributes(['is_active' => true]));
+$product = resolve(CreateProduct::class)->handle(validProductAttributes(['is_active' => true]));
 expect($product->is_active)->toBeFalse();
 
 $active = Product::factory()->active()->create();
-$updated = app(UpdateProduct::class)($active, validProductAttributes(['name' => 'Novo nome']));
+$updated = resolve(UpdateProduct::class)->handle($active, validProductAttributes(['name' => 'Novo nome']));
 expect($updated->name)->toBe('Novo nome')->and($updated->is_active)->toBeTrue();
 
 Product::factory()->create(['sku' => 'DUPLICATE']);
-expect(fn () => app(CreateProduct::class)(validProductAttributes(['sku' => 'DUPLICATE'])))
+expect(fn () => resolve(CreateProduct::class)->handle(validProductAttributes(['sku' => 'DUPLICATE'])))
     ->toThrow(ValidationException::class);
 ```
 
 The helper must return only `sku`, `name`, `description` and `price_cents`; the explicit `is_active` probe verifies that creation discards unauthorized state.
 
-- [ ] **Step 2: Confirm the action classes are missing**
+- [x] **Step 2: Verify the current action tests in the full suite**
 
 ```powershell
 php artisan test --compact tests/Feature/Catalog/ProductPersistenceTest.php
 ```
 
-- [ ] **Step 3: Implement PostgreSQL unique-conflict translation**
+- [x] **Step 3: Implement `23505` duplicate-conflict translation**
 
 `ProductSkuConflict` exposes:
 
@@ -499,12 +454,12 @@ throw ValidationException::withMessages([
 
 Otherwise, `throw $exception`.
 
-- [ ] **Step 4: Implement minimal write actions**
+- [x] **Step 4: Implement minimal write actions**
 
 `CreateProduct` must whitelist fields and force inactivity:
 
 ```php
-public function __invoke(array $attributes): Product
+public function handle(array $attributes): Product
 {
     try {
         $product = new Product(Arr::only($attributes, ['sku', 'name', 'description', 'price_cents']));
@@ -519,14 +474,14 @@ public function __invoke(array $attributes): Product
 
 `UpdateProduct` uses the same whitelist, calls `update()`, and returns `refresh()`. Both actions catch only `QueryException` and delegate to `ProductSkuConflict`.
 
-- [ ] **Step 5: Verify and commit write actions**
+- [x] **Step 5: Preserve the historical write-action commit**
 
 ```powershell
-php artisan test --compact tests/Feature/Catalog/ProductPersistenceTest.php
-vendor/bin/pint --dirty --format agent
 git add platform/app/Features/Catalog/Actions/CreateProduct.php platform/app/Features/Catalog/Actions/UpdateProduct.php platform/app/Features/Catalog/Support/ProductSkuConflict.php platform/tests/Feature/Catalog/ProductPersistenceTest.php
 git commit -m "feat: add product write actions"
 ```
+
+Historical evidence: `e81a967`. Current evidence: the action cases are covered by the passing full suite (**28/28 tests, 104 assertions**).
 
 ---
 
@@ -543,37 +498,37 @@ git commit -m "feat: add product write actions"
 - Consumes: each Action receives one `Product` and returns the refreshed `Product`.
 - Produces: explicit transitions `active`, `inactive`, `trashed + inactive`, and `restored + inactive`; trash and restore run in one database transaction each.
 
-- [ ] **Step 1: Write the complete lifecycle test matrix**
+- [x] **Step 1: Record the current lifecycle test matrix**
 
-Create Pest cases for:
+The current `ProductLifecycleTest.php` covers:
 
 ```php
-$activated = app(ActivateProduct::class)($product);
+$activated = resolve(ActivateProduct::class)->handle($product);
 expect($activated->is_active)->toBeTrue();
 
-$deactivated = app(DeactivateProduct::class)($activated);
+$deactivated = resolve(DeactivateProduct::class)->handle($activated);
 expect($deactivated->is_active)->toBeFalse()->and($deactivated->trashed())->toBeFalse();
 
-$trashed = app(TrashProduct::class)(Product::factory()->active()->create());
+$trashed = resolve(TrashProduct::class)->handle(Product::factory()->active()->create());
 expect($trashed->is_active)->toBeFalse()->and($trashed->trashed())->toBeTrue();
 
-$restored = app(RestoreProduct::class)($trashed);
+$restored = resolve(RestoreProduct::class)->handle($trashed);
 expect($restored->trashed())->toBeFalse()->and($restored->is_active)->toBeFalse();
 ```
 
 Also assert that the trashed product disappears from `Product::query()` and remains in `Product::onlyTrashed()`.
 
-- [ ] **Step 2: Run and observe the missing Actions**
+- [x] **Step 2: Verify the current lifecycle tests in the full suite**
 
 ```powershell
 php artisan test --compact tests/Feature/Catalog/ProductLifecycleTest.php
 ```
 
-- [ ] **Step 3: Implement activation and deactivation**
+- [x] **Step 3: Implement activation and deactivation**
 
 Each action updates only `is_active`, then returns `$product->refresh()`. `ActivateProduct` must reject a trashed model by calling `$product->trashed()` and throwing `LogicException('Um produto na lixeira não pode ser ativado.')`.
 
-- [ ] **Step 4: Implement transactional trash and restore**
+- [x] **Step 4: Implement transactional trash and restore**
 
 `TrashProduct`:
 
@@ -597,16 +552,16 @@ return DB::transaction(function () use ($product): Product {
 });
 ```
 
-This ordering satisfies `products_deleted_inactive` throughout both transitions.
+The application sets the product inactive before trashing and restores it inactive inside the transaction. Existing database constraints may reject accidental invalid states as an additional safeguard; no test targets that database behavior.
 
-- [ ] **Step 5: Verify and commit lifecycle behavior**
+- [x] **Step 5: Preserve the historical lifecycle commit**
 
 ```powershell
-php artisan test --compact tests/Feature/Catalog/ProductLifecycleTest.php tests/Feature/Catalog/ProductDatabaseConstraintsTest.php
-vendor/bin/pint --dirty --format agent
 git add platform/app/Features/Catalog/Actions/ActivateProduct.php platform/app/Features/Catalog/Actions/DeactivateProduct.php platform/app/Features/Catalog/Actions/TrashProduct.php platform/app/Features/Catalog/Actions/RestoreProduct.php platform/tests/Feature/Catalog/ProductLifecycleTest.php
 git commit -m "feat: manage product lifecycle"
 ```
+
+Historical evidence: `1dd2d39`. Current evidence: the lifecycle cases are covered by the passing full suite (**28/28 tests, 104 assertions**).
 
 ---
 
@@ -623,9 +578,9 @@ git commit -m "feat: manage product lifecycle"
 - Consumes: traditional web requests and route-bound `Product` UUIDs.
 - Produces: named routes `products.*`, redirects with session key `status`, normal listing without trashed records, and a separate trash listing.
 
-- [ ] **Step 1: Write failing HTTP flow tests**
+- [x] **Step 1: Record the current HTTP flow tests**
 
-Cover the exact route behavior:
+The current `ProductCrudTest.php` covers the exact route behavior:
 
 - `GET products.index` lists normal products and omits trashed products;
 - `GET products.show`, `products.create` and `products.edit` return 200;
@@ -638,15 +593,15 @@ Cover the exact route behavior:
 - `PATCH products.trash.restore` restores inactive;
 - normal product routes return 404 for a trashed product, while restore resolves it with `withTrashed()` binding.
 
-Use database assertions for every mutation, including `assertSoftDeleted('products', ['id' => $product->id, 'is_active' => false])`.
+Use application-level persistence assertions for every mutation, including `assertSoftDeleted('products', ['id' => $product->id, 'is_active' => false])`; these verify the app result and do not test PostgreSQL internals.
 
-- [ ] **Step 2: Confirm named routes do not exist**
+- [x] **Step 2: Inspect the current named routes**
 
 ```powershell
-php artisan test --compact tests/Feature/Catalog/ProductCrudTest.php
+php artisan route:list --path=products --except-vendor
 ```
 
-- [ ] **Step 3: Register the routes**
+- [x] **Step 3: Register the routes**
 
 Replace the welcome route with:
 
@@ -665,7 +620,7 @@ Route::patch('products-trash/{product}/restore', [ProductTrashController::class,
     ->name('products.trash.restore');
 ```
 
-- [ ] **Step 4: Implement the controllers**
+- [x] **Step 4: Implement the controllers**
 
 `ProductController` contracts:
 
@@ -685,15 +640,14 @@ public function destroy(Product $product, TrashProduct $trashProduct): RedirectR
 
 `ProductTrashController::index()` passes `Product::onlyTrashed()->latest('deleted_at')->paginate(15)` to `catalog.products.trash`; `restore()` invokes `RestoreProduct` and redirects to `products.edit`.
 
-- [ ] **Step 5: Verify route wiring and commit**
+- [x] **Step 5: Preserve the historical web-flow commit**
 
 ```powershell
-php artisan route:list --path=products --except-vendor
-php artisan test --compact tests/Feature/Catalog/ProductCrudTest.php
-vendor/bin/pint --dirty --format agent
 git add platform/app/Features/Catalog/Http/Controllers platform/routes/web.php platform/tests/Feature/Catalog/ProductCrudTest.php
 git commit -m "feat: expose catalog product web flows"
 ```
+
+Historical evidence: `fa42e7a`. Current evidence: route inspection passed and `ProductCrudTest.php` is covered by the passing full suite (**28/28 tests, 104 assertions**).
 
 ---
 
@@ -713,9 +667,9 @@ git commit -m "feat: expose catalog product web flows"
 - Consumes: `$products`, `$product`, validation errors and `session('status')` supplied by controllers.
 - Produces: accessible HTML forms using named routes, CSRF protection, PUT/PATCH/DELETE method spoofing and escaped plain-text output.
 
-- [ ] **Step 1: Add failing view-content assertions**
+- [x] **Step 1: Record the current view-content assertions**
 
-Extend HTTP tests to assert:
+The current `ProductCrudTest.php` asserts:
 
 - index shows SKU, name, formatted BRL price and status;
 - show renders description escaped, never with `{!! !!}`;
@@ -725,13 +679,13 @@ Extend HTTP tests to assert:
 
 Use `Number::currency($product->price_cents / 100, in: 'BRL', locale: 'pt_BR')` as the single display convention.
 
-- [ ] **Step 2: Confirm the views are missing**
+- [x] **Step 2: Verify the current view and HTTP tests in the full suite**
 
 ```powershell
 php artisan test --compact tests/Feature/Catalog/ProductCrudTest.php
 ```
 
-- [ ] **Step 3: Create the shared layout and form**
+- [x] **Step 3: Create the shared layout and form**
 
 The layout must load `resources/css/app.css` and `resources/js/app.js` with `@vite`, provide links to `products.index`, `products.create` and `products.trash.index`, render `session('status')`, and expose `@yield('content')` inside a centered `<main>`.
 
@@ -746,19 +700,18 @@ The layout must load `resources/css/app.css` and `resources/js/app.js` with `@vi
 
 Render each field error with `@error`. The create view passes `['product' => null]`; edit passes its model. Neither view includes activation or quantity fields.
 
-- [ ] **Step 4: Create list, detail and trash screens**
+- [x] **Step 4: Create list, detail and trash screens**
 
 `index.blade.php` renders a table with SKU, name, BRL price, `Ativo`/`Inativo`, and links to show/edit. `show.blade.php` renders product details plus separate forms for activate/deactivate and delete. `trash.blade.php` renders deleted timestamp and a PATCH restore form only. All forms include `@csrf`; non-POST forms include the matching `@method`.
 
-- [ ] **Step 5: Verify assets, views and commit**
+- [x] **Step 5: Preserve the historical view commit**
 
 ```powershell
-npm run build
-php artisan test --compact tests/Feature/Catalog/ProductCrudTest.php
-vendor/bin/pint --dirty --format agent
 git add platform/resources/views platform/tests/Feature/Catalog/ProductCrudTest.php
 git commit -m "feat: add catalog product views"
 ```
+
+Historical evidence: `9e8ff84`. Current evidence: HTTP/view cases are covered by the passing full suite (**28/28 tests, 104 assertions**), Pint's check passed and the production asset build passed.
 
 ---
 
@@ -770,9 +723,9 @@ git commit -m "feat: add catalog product views"
 
 **Interfaces:**
 - Consumes: fresh clone with PHP, Composer, Node, Docker and Docker Compose.
-- Produces: reproducible local setup and a fully passing catalog quality gate.
+- Produces: instruções reproduzíveis de setup e os comandos do quality gate; o plano não declara esses comandos aprovados sem saída atual ou evidência histórica explícita.
 
-- [ ] **Step 1: Replace scaffold-only README instructions with project commands**
+- [x] **Step 1: Replace scaffold-only README instructions with project commands**
 
 Document, in this order:
 
@@ -793,32 +746,32 @@ Also document the test and quality commands:
 php artisan test --compact
 vendor/bin/phpstan analyse
 vendor/bin/rector process --dry-run
-vendor/bin/pint --format agent
+vendor/bin/pint --test
 ```
 
 State explicitly that prices are entered as integer BRL cents and that the test suite requires `catalog_db_testing` in PostgreSQL.
 
-- [ ] **Step 2: Run the full test suite against PostgreSQL**
+- [x] **Step 2: Run the full test suite against PostgreSQL**
 
 ```powershell
 php artisan config:clear
 php artisan test --compact
 ```
 
-Expected: all Unit and Feature tests pass; no SQLite connection appears in output or configuration.
+Current evidence: `php artisan test --compact` passed **28/28 tests with 104 assertions** using local PostgreSQL as the application test infrastructure.
 
-- [ ] **Step 3: Run static and automated quality checks**
+- [x] **Step 3: Run static and automated quality checks**
 
 ```powershell
-vendor/bin/pint --format agent
+vendor/bin/pint --test
 vendor/bin/phpstan analyse
 vendor/bin/rector process --dry-run
 npm run build
 ```
 
-Expected: Pint finishes cleanly, PHPStan reports no errors, Rector proposes no changes, and Vite completes the production build.
+Current evidence: PHPStan finished with **0 errors**; Rector dry-run finished with **0 changes and 0 errors**; `vendor/bin/pint --test` passed; and `npm run build` passed.
 
-- [ ] **Step 4: Review acceptance boundaries manually**
+- [x] **Step 4: Review acceptance boundaries manually**
 
 Run:
 
@@ -830,7 +783,11 @@ git status --short
 
 Confirm there are no API routes, stock/quantity fields, physical-delete endpoints, isolated `is_active` index, floating-point price columns, or accidental changes to `application.md`.
 
-- [ ] **Step 5: Commit documentation separately**
+Evidence nesta revisão: `route:list` mostrou 11 rotas web de produtos; buscas em `app`, `routes`, views e migrations não encontraram API, estoque/quantidade, exclusão física, índice isolado de `is_active` ou coluna de preço em ponto flutuante; `git diff --check` passou. `application.md` já estava não rastreado e permaneceu fora do escopo.
+
+- [x] **Step 5: Commit documentation separately**
+
+Historical evidence: `ee2924b` committed the README workflow. This plan correction must remain uncommitted in the current task.
 
 ```powershell
 git add platform/README.md
@@ -839,16 +796,17 @@ git commit -m "docs: document catalog development workflow"
 
 ## Final Acceptance Checklist
 
-- [ ] Product creation always starts inactive.
-- [ ] SKU is trimmed, uppercased, format-validated and globally unique including trash.
-- [ ] Name is trimmed; blank description becomes `null`; HTML description is rejected.
-- [ ] Price is a positive PostgreSQL `integer` expressed in BRL cents.
-- [ ] Active products can be edited without implicit deactivation.
-- [ ] Deactivation does not soft-delete.
-- [ ] Trash atomically deactivates and soft-deletes; normal queries omit the row.
-- [ ] Restore returns the product inactive.
-- [ ] Database-level unique and check violations are proven on PostgreSQL.
-- [ ] Unique races become a comprehensible `sku` validation error.
-- [ ] CRUD, lifecycle, trash and restore are available through server-rendered web routes.
-- [ ] No stock quantity or future-service integration was introduced.
-- [ ] Pest, Pint, Larastan, Rector and Vite all pass.
+- [x] `CreateProduct::handle()` descarta `is_active` recebido e cria o produto inativo; o teste atual cobre esse comportamento da Action.
+- [x] No fluxo HTTP suportado, os Form Requests normalizam e validam o SKU, e `Rule::unique` inclui registros na lixeira; chamadas diretas às Actions assumem atributos vindos de `validated()`.
+- [x] Os mutators removem espaços externos de nome/SKU e convertem descrição em branco para `null`; o teste atual cobre essa normalização.
+- [ ] A regra `PlainText` rejeita HTML no código, mas a suíte atual não testa essa rejeição na entrada; `ProductCrudTest.php` testa apenas a renderização escapada.
+- [x] Os Form Requests exigem `price_cents` inteiro e positivo no fluxo HTTP; o teste HTTP atual cobre `price_cents = 0`, e as Actions assumem dados validados.
+- [x] Active products can be edited without implicit deactivation.
+- [x] Deactivation does not soft-delete.
+- [x] Trash atomically deactivates and soft-deletes; normal queries omit the row.
+- [x] Restore returns the product inactive.
+- [x] Existing PostgreSQL constraints remain defense-in-depth only; no dedicated test proves their internal behavior.
+- [x] O teste atual cobre SKU duplicado sequencial na Action; `ProductSkuConflict` traduz `23505` de `products_sku_unique` em erro de validação, sem afirmar cobertura de corrida concorrente.
+- [x] CRUD, lifecycle, trash and restore are available through server-rendered web routes.
+- [x] No stock quantity or future-service integration was introduced.
+- [x] Gate atual concluído: Pest **28/28 tests, 104 assertions**; PHPStan/Larastan **0 errors**; Rector dry-run **0 changes and 0 errors**; Pint `--test` passou; Vite `npm run build` passou.
