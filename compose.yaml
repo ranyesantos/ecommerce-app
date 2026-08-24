@@ -35,8 +35,8 @@ services:
     volumes:
       - rabbitmq_data:/var/lib/rabbitmq
 
-  rabbitmq_setup:
-    image: python:3.13-alpine
+  rabbitmq_identity_setup:
+    image: rabbitmq:4.3.5-management-alpine
     depends_on:
       rabbitmq:
         condition: service_healthy
@@ -45,11 +45,11 @@ services:
       RABBITMQ_ADMIN_PASSWORD: ${RABBITMQ_ADMIN_PASSWORD}
       RABBITMQ_CATALOG_USER: ${RABBITMQ_CATALOG_USER}
       RABBITMQ_CATALOG_PASSWORD: ${RABBITMQ_CATALOG_PASSWORD}
-    command: ['python', '/bootstrap/bootstrap.py']
+    entrypoint: ['/bin/sh', '/setup/provision-identity.sh']
     restart: 'no'
     volumes:
-      - ./infra/rabbitmq/bootstrap.py:/bootstrap/bootstrap.py:ro
-      - ./infra/rabbitmq/definitions.json:/config/definitions.json:ro
+      - ./infra/rabbitmq/provision-identity.sh:/setup/provision-identity.sh:ro
+      - ./infra/rabbitmq/definitions.json:/setup/definitions.json:ro
 
 volumes:
   catalog_db_data:

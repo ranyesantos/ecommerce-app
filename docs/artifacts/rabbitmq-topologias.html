@@ -1,0 +1,633 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Explicação visual, progressiva e amigável para TDAH sobre redelivery, retry, DLQ e três topologias RabbitMQ para o inventory-lab.">
+  <title>RabbitMQ sem perder o fio · guia visual</title>
+  <style>
+    :root {
+      --night: #081316;
+      --night-2: #0d1d20;
+      --panel: #12272a;
+      --panel-hot: #183438;
+      --paper: #fff5dc;
+      --paper-soft: #d7cfba;
+      --line: #36575a;
+      --mint: #80f0c6;
+      --yellow: #ffd166;
+      --orange: #ff8a5b;
+      --red: #ff6b6b;
+      --blue: #69c7ff;
+      --ink: #102022;
+      --display: Georgia, "Times New Roman", serif;
+      --body: "Trebuchet MS", "Gill Sans", sans-serif;
+      --mono: "Courier New", Courier, monospace;
+      --radius: 18px;
+      --shadow: 0 22px 60px rgba(0, 0, 0, .28);
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      min-width: 320px;
+      margin: 0;
+      color: var(--paper);
+      background:
+        radial-gradient(circle at 85% 4%, rgba(105, 199, 255, .12), transparent 28rem),
+        linear-gradient(rgba(128, 240, 198, .035) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(128, 240, 198, .035) 1px, transparent 1px),
+        var(--night);
+      background-size: auto, 30px 30px, 30px 30px, auto;
+      font: 17px/1.58 var(--body);
+      -webkit-font-smoothing: antialiased;
+    }
+
+    button { font: inherit; }
+    button, a { -webkit-tap-highlight-color: transparent; }
+    a { color: var(--mint); }
+    code { color: var(--yellow); font-family: var(--mono); font-size: .9em; }
+    h1, h2, h3, p { margin-top: 0; }
+    h1, h2 { font-family: var(--display); font-weight: 400; letter-spacing: -.035em; line-height: 1.03; }
+    h1 { max-width: 920px; margin-bottom: 24px; font-size: clamp(3.1rem, 8vw, 7.1rem); }
+    h2 { margin-bottom: 16px; font-size: clamp(2.2rem, 5vw, 4.4rem); }
+    h3 { margin-bottom: 8px; font-size: 1.05rem; line-height: 1.25; }
+    p { max-width: 68ch; }
+    strong { color: #fffdf7; }
+    ::selection { color: var(--ink); background: var(--yellow); }
+    :focus-visible { outline: 3px solid var(--yellow); outline-offset: 4px; }
+
+    .skip-link {
+      position: fixed;
+      z-index: 20;
+      top: 12px;
+      left: 12px;
+      padding: 9px 13px;
+      color: var(--ink);
+      background: var(--mint);
+      transform: translateY(-160%);
+    }
+    .skip-link:focus { transform: translateY(0); }
+    .shell { width: min(1240px, calc(100% - 36px)); margin: 0 auto; }
+    .eyebrow {
+      color: var(--mint);
+      font: 700 .7rem/1.2 var(--mono);
+      letter-spacing: .16em;
+      text-transform: uppercase;
+    }
+    .lede { max-width: 58ch; color: var(--paper-soft); font-size: clamp(1.05rem, 1.8vw, 1.35rem); }
+    .muted { color: var(--paper-soft); }
+    .small { font-size: .84rem; }
+    .mono { font-family: var(--mono); }
+    .detail { display: block; }
+
+    body.essential .detail { display: none !important; }
+    body.essential .essential-label::after { content: " ligado"; color: var(--mint); }
+
+    header { padding: 28px 0 78px; }
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      margin-bottom: 72px;
+    }
+    .brand { display: flex; align-items: center; gap: 11px; color: var(--paper-soft); font: 700 .7rem var(--mono); letter-spacing: .11em; text-transform: uppercase; }
+    .brand-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--mint); box-shadow: 0 0 18px var(--mint); }
+    .toggle {
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      padding: 10px 15px;
+      color: var(--paper);
+      background: var(--night-2);
+      cursor: pointer;
+    }
+    .toggle[aria-pressed="true"] { border-color: var(--mint); color: var(--ink); background: var(--mint); }
+    .hero-grid { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(260px, .5fr); gap: 7vw; align-items: end; }
+    .hero-grid em { color: var(--yellow); font-style: normal; }
+    .memory-card {
+      border: 1px solid var(--yellow);
+      border-radius: var(--radius);
+      padding: 22px;
+      color: var(--ink);
+      background: var(--yellow);
+      box-shadow: var(--shadow);
+      transform: rotate(1.3deg);
+    }
+    .memory-card span { display: block; margin-bottom: 8px; font: 700 .7rem var(--mono); letter-spacing: .12em; text-transform: uppercase; }
+    .memory-card p { margin: 0; font-family: var(--display); font-size: 1.45rem; line-height: 1.2; }
+
+    nav.progress {
+      position: sticky;
+      z-index: 9;
+      top: 0;
+      border-top: 1px solid var(--line);
+      border-bottom: 1px solid var(--line);
+      background: rgba(8, 19, 22, .94);
+      backdrop-filter: blur(14px);
+    }
+    .progress .shell { display: flex; gap: 6px; overflow-x: auto; padding-top: 10px; padding-bottom: 10px; scrollbar-width: thin; }
+    .progress a { flex: 0 0 auto; border-radius: 999px; padding: 7px 11px; color: var(--paper-soft); font: 700 .72rem var(--mono); text-decoration: none; }
+    .progress a:hover { color: var(--paper); background: var(--panel); }
+
+    section { padding: 96px 0; }
+    section + section { border-top: 1px solid var(--line); }
+    .section-head { display: grid; grid-template-columns: 160px minmax(0, 1fr); gap: 36px; margin-bottom: 42px; }
+    .step-number { color: var(--orange); font: 700 .72rem var(--mono); letter-spacing: .12em; text-transform: uppercase; }
+    .section-head p { color: var(--paper-soft); }
+
+    .three-actions { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+    .action-card {
+      position: relative;
+      min-height: 260px;
+      overflow: hidden;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      padding: 24px;
+      background: var(--panel);
+    }
+    .action-card::after { position: absolute; right: -20px; bottom: -52px; color: rgba(255,255,255,.045); font: 700 9rem/1 var(--mono); content: attr(data-index); }
+    .action-icon { display: grid; width: 46px; height: 46px; margin-bottom: 32px; place-items: center; border-radius: 50%; color: var(--ink); font: 700 1.25rem var(--mono); }
+    .action-card:nth-child(1) .action-icon { background: var(--blue); }
+    .action-card:nth-child(2) .action-icon { background: var(--yellow); }
+    .action-card:nth-child(3) .action-icon { background: var(--red); }
+    .action-card p { position: relative; z-index: 1; margin-bottom: 0; color: var(--paper-soft); }
+    .one-line { margin: 30px 0 0; border-left: 5px solid var(--mint); padding: 15px 20px; color: var(--paper); background: rgba(128, 240, 198, .07); font-size: 1.13rem; }
+
+    .topology-tabs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 24px; }
+    .topology-tab {
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 16px;
+      color: var(--paper-soft);
+      text-align: left;
+      background: transparent;
+      cursor: pointer;
+    }
+    .topology-tab span { display: block; margin-bottom: 5px; color: var(--orange); font: 700 .68rem var(--mono); letter-spacing: .1em; text-transform: uppercase; }
+    .topology-tab strong { display: block; }
+    .topology-tab[aria-selected="true"] { border-color: var(--mint); color: var(--paper); background: var(--panel-hot); box-shadow: inset 0 0 0 1px var(--mint); }
+
+    .topology-stage { border: 1px solid var(--line); border-radius: 24px; background: var(--night-2); box-shadow: var(--shadow); }
+    .stage-copy { display: grid; grid-template-columns: minmax(0, .75fr) minmax(0, 1.25fr); gap: 28px; padding: 28px; }
+    .verdict { align-self: start; border-radius: 12px; padding: 12px 14px; color: var(--ink); background: var(--yellow); font: 700 .76rem var(--mono); }
+    .stage-copy h3 { margin-top: 18px; font-family: var(--display); font-size: 1.75rem; font-weight: 400; }
+    .stage-copy p { color: var(--paper-soft); }
+    .tradeoffs { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .tradeoff { border-top: 1px solid var(--line); padding-top: 12px; }
+    .tradeoff b { display: block; margin-bottom: 4px; color: var(--mint); font: 700 .7rem var(--mono); text-transform: uppercase; }
+    .tradeoff.bad b { color: var(--orange); }
+
+    .map {
+      position: relative;
+      min-height: 430px;
+      overflow: hidden;
+      border-top: 1px solid var(--line);
+      padding: 34px 24px 28px;
+      background:
+        linear-gradient(rgba(105, 199, 255, .04) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(105, 199, 255, .04) 1px, transparent 1px);
+      background-size: 28px 28px;
+    }
+    .route {
+      display: grid;
+      grid-template-columns: minmax(120px, .7fr) 36px minmax(150px, 1fr) 36px minmax(150px, 1fr);
+      gap: 12px;
+      align-items: center;
+      margin: 0 auto 30px;
+      max-width: 980px;
+    }
+    .route:last-child { margin-bottom: 0; }
+    .node { min-height: 78px; border: 1px solid var(--line); border-radius: 13px; padding: 13px; background: var(--panel); }
+    .node.exchange { border-color: var(--blue); }
+    .node.queue { border-color: var(--yellow); }
+    .node.dead { border-color: var(--red); }
+    .node small { display: block; margin-bottom: 5px; color: var(--paper-soft); font: 700 .63rem var(--mono); letter-spacing: .09em; text-transform: uppercase; }
+    .node strong { display: block; overflow-wrap: anywhere; font: 700 .78rem/1.35 var(--mono); }
+    .arrow { position: relative; height: 2px; background: var(--line); }
+    .arrow::after { position: absolute; top: 50%; right: -1px; border-width: 5px 0 5px 8px; border-style: solid; border-color: transparent transparent transparent var(--line); content: ""; transform: translateY(-50%); }
+    .packet { position: absolute; z-index: 3; top: -6px; left: 0; width: 14px; height: 14px; border-radius: 50%; background: var(--mint); box-shadow: 0 0 16px var(--mint); opacity: 0; }
+    .map.playing .packet { animation: travel 1.2s ease-in-out infinite; opacity: 1; }
+    .map.playing .route:nth-child(2) .packet { animation-delay: .35s; background: var(--yellow); box-shadow: 0 0 16px var(--yellow); }
+    .map.playing .route:nth-child(3) .packet { animation-delay: .7s; background: var(--red); box-shadow: 0 0 16px var(--red); }
+    @keyframes travel { from { left: 0; } to { left: calc(100% - 12px); } }
+    .map-actions { display: flex; justify-content: center; margin-top: 28px; }
+    .play-button { border: 0; border-radius: 999px; padding: 11px 17px; color: var(--ink); background: var(--mint); font-weight: 700; cursor: pointer; }
+    .map-legend { display: flex; flex-wrap: wrap; justify-content: center; gap: 16px; margin-top: 16px; color: var(--paper-soft); font: 700 .68rem var(--mono); }
+    .map-legend i { display: inline-block; width: 9px; height: 9px; margin-right: 6px; border-radius: 50%; }
+
+    .decision-grid { display: grid; grid-template-columns: minmax(0, .72fr) minmax(0, 1.28fr); gap: 18px; }
+    .no-always { border-radius: var(--radius); padding: 28px; color: var(--ink); background: var(--orange); }
+    .no-always .giant { display: block; font: 700 clamp(4rem, 9vw, 8rem)/.9 var(--display); letter-spacing: -.07em; }
+    .no-always p { margin: 18px 0 0; font-weight: 700; }
+    .market-pattern { border: 1px solid var(--mint); border-radius: var(--radius); padding: 28px; background: var(--panel); }
+    .market-pattern h3 { color: var(--mint); font: 700 .72rem var(--mono); letter-spacing: .11em; text-transform: uppercase; }
+    .market-pattern ol { margin: 20px 0 0; padding: 0; list-style: none; counter-reset: pattern; }
+    .market-pattern li { position: relative; margin-top: 14px; border-top: 1px solid var(--line); padding: 14px 0 0 48px; color: var(--paper-soft); counter-increment: pattern; }
+    .market-pattern li::before { position: absolute; top: 12px; left: 0; color: var(--yellow); font: 700 1.5rem var(--mono); content: counter(pattern, decimal-leading-zero); }
+
+    .recommendation { display: grid; grid-template-columns: 1fr 1fr; overflow: hidden; border: 1px solid var(--mint); border-radius: 24px; }
+    .recommendation > div { padding: 32px; }
+    .recommendation > div:first-child { color: var(--ink); background: var(--mint); }
+    .recommendation > div:first-child strong { color: var(--ink); }
+    .recommendation h3 { font-family: var(--display); font-size: 2rem; font-weight: 400; }
+    .recommendation ul { margin: 20px 0 0; padding-left: 20px; }
+    .recommendation li + li { margin-top: 10px; }
+    .recommendation .later { background: var(--panel); }
+    .recommendation .later li { color: var(--paper-soft); }
+    .now-flow { display: flex; align-items: center; gap: 12px; margin-top: 24px; }
+    .now-flow span { flex: 1; border: 1px solid rgba(16,32,34,.4); border-radius: 10px; padding: 11px; font: 700 .74rem/1.3 var(--mono); text-align: center; }
+    .now-flow b { color: var(--ink); }
+
+    .recap { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-top: 30px; }
+    .recap div { border-top: 3px solid var(--blue); padding-top: 14px; }
+    .recap div:nth-child(2) { border-color: var(--yellow); }
+    .recap div:nth-child(3) { border-color: var(--red); }
+    .recap strong { display: block; margin-bottom: 5px; }
+    .recap p { margin: 0; color: var(--paper-soft); font-size: .9rem; }
+
+    footer { border-top: 1px solid var(--line); padding: 36px 0 52px; color: var(--paper-soft); }
+    footer .shell { display: flex; justify-content: space-between; gap: 24px; }
+
+    @media (max-width: 850px) {
+      .hero-grid, .section-head, .stage-copy, .decision-grid, .recommendation { grid-template-columns: 1fr; }
+      .three-actions { grid-template-columns: 1fr; }
+      .action-card { min-height: 0; }
+      .action-icon { margin-bottom: 20px; }
+      .route { grid-template-columns: 1fr 24px 1fr 24px 1fr; gap: 5px; }
+      .node { padding: 10px; }
+      .node strong { font-size: .68rem; }
+      .recommendation > div { padding: 26px; }
+    }
+
+    @media (max-width: 620px) {
+      body { font-size: 16px; }
+      .shell { width: min(100% - 24px, 1240px); }
+      header { padding-bottom: 54px; }
+      .topbar { align-items: flex-start; margin-bottom: 50px; }
+      .brand { max-width: 120px; }
+      .memory-card { margin-top: 28px; }
+      section { padding: 68px 0; }
+      .section-head { gap: 8px; }
+      .topology-tabs { grid-template-columns: 1fr; }
+      .topology-tab { padding: 12px 14px; }
+      .tradeoffs, .recap { grid-template-columns: 1fr; }
+      .map { min-height: 0; padding: 24px 12px; }
+      .route { grid-template-columns: 1fr; margin-bottom: 22px; border-bottom: 1px solid var(--line); padding-bottom: 22px; }
+      .arrow { width: 2px; height: 22px; margin: 0 auto; }
+      .arrow::after { top: auto; right: auto; bottom: -2px; left: 50%; border-width: 7px 5px 0; border-color: var(--line) transparent transparent; transform: translateX(-50%); }
+      .packet { top: 0; left: -6px; }
+      .map.playing .packet { animation-name: travel-mobile; }
+      @keyframes travel-mobile { from { top: 0; } to { top: calc(100% - 12px); } }
+      .node { min-height: 0; }
+      .now-flow { align-items: stretch; flex-direction: column; }
+      .now-flow b { text-align: center; transform: rotate(90deg); }
+      footer .shell { flex-direction: column; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      html { scroll-behavior: auto; }
+      *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
+    }
+  </style>
+</head>
+<body>
+  <a class="skip-link" href="#conteudo">Pular para o conteúdo</a>
+
+  <header>
+    <div class="shell">
+      <div class="topbar">
+        <div class="brand"><i class="brand-dot" aria-hidden="true"></i> inventory-lab · RabbitMQ</div>
+        <button id="essentialToggle" class="toggle" type="button" aria-pressed="false">
+          <span class="essential-label">Modo só o essencial</span>
+        </button>
+      </div>
+      <div class="hero-grid">
+        <div>
+          <p class="eyebrow">Uma ideia por vez. Você não precisa decorar.</p>
+          <h1>Topologias RabbitMQ <em>sem perder o fio.</em></h1>
+          <p class="lede">Em vez de começar pelas exchanges, vamos acompanhar uma mensagem. Quando você entender para onde ela precisa ir, a topologia deixa de parecer abstrata.</p>
+        </div>
+        <aside class="memory-card" aria-label="Regra principal">
+          <span>Se lembrar de uma coisa</span>
+          <p>Evento é para interessados. Retry é só para quem falhou.</p>
+        </aside>
+      </div>
+    </div>
+  </header>
+
+  <nav class="progress" aria-label="Navegação do guia">
+    <div class="shell">
+      <a href="#desembaralhar">1. Desembaralhar</a>
+      <a href="#topologias">2. Comparar</a>
+      <a href="#mercado">3. Mercado</a>
+      <a href="#projeto">4. Nosso projeto</a>
+    </div>
+  </nav>
+
+  <main id="conteudo">
+    <section id="desembaralhar">
+      <div class="shell">
+        <div class="section-head">
+          <div class="step-number">Passo 01</div>
+          <div>
+            <h2>Primeiro: são três movimentos diferentes.</h2>
+            <p>Topologia é o mapa. Redelivery, retry e DLQ são coisas que podem acontecer com a mensagem dentro desse mapa.</p>
+          </div>
+        </div>
+
+        <div class="three-actions">
+          <article class="action-card" data-index="01">
+            <div class="action-icon" aria-hidden="true">↺</div>
+            <h3>Redelivery</h3>
+            <p><strong>Mesma fila, outra entrega.</strong> O consumidor caiu antes do ACK ou pediu requeue. A mensagem não precisa voltar pela <code>ecommerce.events</code>.</p>
+          </article>
+          <article class="action-card" data-index="02">
+            <div class="action-icon" aria-hidden="true">⏱</div>
+            <h3>Retry com atraso</h3>
+            <p><strong>Sai, espera e volta.</strong> A mensagem aguarda numa retry queue. Depois do TTL, uma exchange a direciona de volta à fila daquele consumidor.</p>
+          </article>
+          <article class="action-card" data-index="03">
+            <div class="action-icon" aria-hidden="true">×</div>
+            <h3>DLQ</h3>
+            <p><strong>Estação final.</strong> Depois de esgotar as tentativas — ou diante de erro permanente — a mensagem vai para inspeção, não para processamento normal.</p>
+          </article>
+        </div>
+
+        <p class="one-line"><strong>Tradução mental:</strong> redelivery = tente de novo agora; retry = tente depois; DLQ = pare e investigue.</p>
+      </div>
+    </section>
+
+    <section id="topologias">
+      <div class="shell">
+        <div class="section-head">
+          <div class="step-number">Passo 02</div>
+          <div>
+            <h2>Agora, os três mapas.</h2>
+            <p>O evento normal é igual nos três. O que muda é <strong>qual exchange cuida dos caminhos de falha</strong>.</p>
+          </div>
+        </div>
+
+        <div class="topology-tabs" role="tablist" aria-label="Escolha uma topologia">
+          <button class="topology-tab" id="tab-one" type="button" role="tab" aria-selected="false" aria-controls="topologyPanel" data-topology="one">
+            <span>Topologia 1</span><strong>Uma exchange para tudo</strong>
+          </button>
+          <button class="topology-tab" id="tab-two" type="button" role="tab" aria-selected="true" aria-controls="topologyPanel" data-topology="two">
+            <span>Topologia 2</span><strong>Exchanges separadas</strong>
+          </button>
+          <button class="topology-tab" id="tab-three" type="button" role="tab" aria-selected="false" aria-controls="topologyPanel" data-topology="three">
+            <span>Topologia 3</span><strong>Default para retorno</strong>
+          </button>
+        </div>
+
+        <div id="topologyPanel" class="topology-stage" role="tabpanel" aria-labelledby="tab-two" aria-live="polite">
+          <div class="stage-copy">
+            <div>
+              <div id="topologyVerdict" class="verdict">RECOMENDADA PARA EVOLUIR</div>
+              <h3 id="topologyTitle">Exchanges separadas por responsabilidade</h3>
+              <p id="topologySummary">Eventos de negócio ficam limpos. Retry e falhas terminais têm caminhos operacionais próprios.</p>
+            </div>
+            <div class="tradeoffs detail">
+              <div class="tradeoff"><b>Ganha</b><span id="topologyGain">clareza, permissões e observabilidade</span></div>
+              <div class="tradeoff bad"><b>Paga</b><span id="topologyCost">mais exchanges, bindings e configuração</span></div>
+            </div>
+          </div>
+
+          <div id="topologyMap" class="map" aria-label="Diagrama da topologia selecionada">
+            <div class="route">
+              <div class="node"><small>Publicador</small><strong>Catálogo</strong></div>
+              <div class="arrow"><i class="packet" aria-hidden="true"></i></div>
+              <div class="node exchange"><small>Evento de negócio</small><strong id="eventExchange">ecommerce.events</strong></div>
+              <div class="arrow"><i class="packet" aria-hidden="true"></i></div>
+              <div class="node queue"><small>Fila consumidora</small><strong>inventory.catalog</strong></div>
+            </div>
+            <div class="route">
+              <div class="node"><small>Falha transitória</small><strong>retry em 5s</strong></div>
+              <div class="arrow"><i class="packet" aria-hidden="true"></i></div>
+              <div class="node exchange"><small id="retryExchangeLabel">Exchange direta</small><strong id="retryExchange">ecommerce.retry</strong></div>
+              <div class="arrow"><i class="packet" aria-hidden="true"></i></div>
+              <div class="node queue"><small>Espera + TTL</small><strong>inventory.catalog.retry.5s</strong></div>
+            </div>
+            <div class="route">
+              <div class="node"><small>Falha terminal</small><strong>não tentar novamente</strong></div>
+              <div class="arrow"><i class="packet" aria-hidden="true"></i></div>
+              <div class="node exchange"><small id="deadExchangeLabel">Exchange direta</small><strong id="deadExchange">ecommerce.dead-letter</strong></div>
+              <div class="arrow"><i class="packet" aria-hidden="true"></i></div>
+              <div class="node dead"><small>Fila de investigação</small><strong>inventory.catalog.dlq</strong></div>
+            </div>
+            <div class="map-actions">
+              <button id="playRoutes" class="play-button" type="button" aria-pressed="false">▶ Animar caminhos</button>
+            </div>
+            <div class="map-legend detail" aria-label="Legenda">
+              <span><i style="background:var(--blue)"></i>exchange</span>
+              <span><i style="background:var(--yellow)"></i>fila</span>
+              <span><i style="background:var(--red)"></i>destino terminal</span>
+            </div>
+          </div>
+        </div>
+
+        <p class="one-line" id="topologyBottomLine"><strong>Em uma frase:</strong> negócio, retry e DLQ não dividem a mesma tabela de roteamento.</p>
+      </div>
+    </section>
+
+    <section id="mercado">
+      <div class="shell">
+        <div class="section-head">
+          <div class="step-number">Passo 03</div>
+          <div>
+            <h2>O mercado escolhe uma sempre?</h2>
+            <p>Não. Existe uma direção frequente, mas não uma lei.</p>
+          </div>
+        </div>
+
+        <div class="decision-grid">
+          <div class="no-always">
+            <span class="giant">Não.</span>
+            <p>O tamanho do sistema, número de consumidores, equipe e necessidade de observabilidade mudam a escolha.</p>
+          </div>
+          <div class="market-pattern">
+            <h3>Padrão frequente em sistemas que cresceram</h3>
+            <ol>
+              <li><strong>Evento de domínio fica na exchange de eventos.</strong> Ela diz o que aconteceu no negócio.</li>
+              <li><strong>Retry pertence ao consumidor que falhou.</strong> Ele não deve disparar os outros consumidores outra vez.</li>
+              <li><strong>DLQ é separada por consumidor.</strong> Assim, investigar uma falha não mistura contextos.</li>
+            </ol>
+          </div>
+        </div>
+
+        <p class="one-line"><strong>Resposta curta:</strong> sistemas pequenos aceitam a topologia 1; sistemas com vários consumidores frequentemente caminham para a 2 ou para um híbrido 2 + 3.</p>
+      </div>
+    </section>
+
+    <section id="projeto">
+      <div class="shell">
+        <div class="section-head">
+          <div class="step-number">Passo 04</div>
+          <div>
+            <h2>O que isso significa agora?</h2>
+            <p>Não precisamos construir infraestrutura para um consumidor que ainda não existe.</p>
+          </div>
+        </div>
+
+        <div class="recommendation">
+          <div>
+            <p class="eyebrow" style="color:var(--ink)">Nesta etapa</p>
+            <h3><strong>Broker + publicação do evento.</strong></h3>
+            <ul>
+              <li>RabbitMQ rodando.</li>
+              <li><code style="color:var(--ink)">ecommerce.events</code> do tipo topic.</li>
+              <li>Catálogo publica <code style="color:var(--ink)">catalog.product.created</code>.</li>
+            </ul>
+            <div class="now-flow" aria-label="Fluxo desta etapa">
+              <span>Catálogo</span><b>→</b><span>ecommerce.events</span>
+            </div>
+          </div>
+          <div class="later detail">
+            <p class="eyebrow">Quando houver consumidor</p>
+            <h3>Adicionamos o caminho de falha.</h3>
+            <ul>
+              <li><code>ecommerce.retry</code> para tentativas direcionadas.</li>
+              <li>Retorno exato para a fila principal, podendo usar a exchange default.</li>
+              <li><code>ecommerce.dead-letter</code> e DLQ por consumidor.</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="recap">
+          <div><strong>Evento</strong><p>“Algo aconteceu.” Pode interessar a vários serviços.</p></div>
+          <div><strong>Retry</strong><p>“Este consumidor falhou.” Volta somente para ele.</p></div>
+          <div><strong>DLQ</strong><p>“Pare de tentar.” Aguarda diagnóstico humano ou automação.</p></div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <div class="shell">
+      <span>Guia visual · inventory-lab</span>
+      <span>Regra de ouro: evento distribui; retry direciona.</span>
+    </div>
+  </footer>
+
+  <script>
+    (() => {
+      const topologies = {
+        one: {
+          tab: 'tab-one',
+          verdict: 'SIMPLES, MAS MISTURA RESPONSABILIDADES',
+          title: 'Uma exchange para tudo',
+          summary: 'Eventos, retries e mensagens terminais usam ecommerce.events com routing keys diferentes.',
+          gain: 'menos exchanges para declarar',
+          cost: 'acoplamento operacional e maior risco de bindings confusas',
+          retryLabel: 'A mesma exchange topic',
+          retry: 'ecommerce.events',
+          deadLabel: 'A mesma exchange topic',
+          dead: 'ecommerce.events',
+          bottom: '<strong>Em uma frase:</strong> funciona, mas a exchange de negócio também aprende sobre filas e falhas de consumidores.'
+        },
+        two: {
+          tab: 'tab-two',
+          verdict: 'RECOMENDADA PARA EVOLUIR',
+          title: 'Exchanges separadas por responsabilidade',
+          summary: 'Eventos de negócio ficam limpos. Retry e falhas terminais têm caminhos operacionais próprios.',
+          gain: 'clareza, permissões e observabilidade',
+          cost: 'mais exchanges, bindings e configuração',
+          retryLabel: 'Exchange direta',
+          retry: 'ecommerce.retry',
+          deadLabel: 'Exchange direta',
+          dead: 'ecommerce.dead-letter',
+          bottom: '<strong>Em uma frase:</strong> negócio, retry e DLQ não dividem a mesma tabela de roteamento.'
+        },
+        three: {
+          tab: 'tab-three',
+          verdict: 'PRÁTICA PARA RETORNO EXATO',
+          title: 'Exchange default como atalho direto',
+          summary: 'A exchange de eventos continua cuidando do negócio. No retorno, a exchange default usa o nome exato da fila como routing key.',
+          gain: 'retorno direto sem refazer o fan-out do evento',
+          cost: 'configuração acoplada ao nome físico da fila',
+          retryLabel: 'Exchange interna do RabbitMQ',
+          retry: '\"\" → inventory.catalog',
+          deadLabel: 'Exchange interna ou dedicada',
+          dead: '\"\" → inventory.catalog.dlq',
+          bottom: '<strong>Em uma frase:</strong> a mensagem ainda passa por uma exchange — só que ela já existe e aponta pelo nome da fila.'
+        }
+      };
+
+      const body = document.body;
+      const essentialToggle = document.getElementById('essentialToggle');
+      const tabs = Array.from(document.querySelectorAll('.topology-tab'));
+      const panel = document.getElementById('topologyPanel');
+      const map = document.getElementById('topologyMap');
+      const playButton = document.getElementById('playRoutes');
+
+      const fields = {
+        verdict: document.getElementById('topologyVerdict'),
+        title: document.getElementById('topologyTitle'),
+        summary: document.getElementById('topologySummary'),
+        gain: document.getElementById('topologyGain'),
+        cost: document.getElementById('topologyCost'),
+        retryLabel: document.getElementById('retryExchangeLabel'),
+        retry: document.getElementById('retryExchange'),
+        deadLabel: document.getElementById('deadExchangeLabel'),
+        dead: document.getElementById('deadExchange'),
+        bottom: document.getElementById('topologyBottomLine')
+      };
+
+      function selectTopology(name, focusTab = false) {
+        const topology = topologies[name];
+        tabs.forEach((tab) => {
+          const selected = tab.dataset.topology === name;
+          tab.setAttribute('aria-selected', String(selected));
+          tab.tabIndex = selected ? 0 : -1;
+          if (selected && focusTab) {
+            tab.focus();
+          }
+        });
+
+        panel.setAttribute('aria-labelledby', topology.tab);
+        fields.verdict.textContent = topology.verdict;
+        fields.title.textContent = topology.title;
+        fields.summary.textContent = topology.summary;
+        fields.gain.textContent = topology.gain;
+        fields.cost.textContent = topology.cost;
+        fields.retryLabel.textContent = topology.retryLabel;
+        fields.retry.textContent = topology.retry;
+        fields.deadLabel.textContent = topology.deadLabel;
+        fields.dead.textContent = topology.dead;
+        fields.bottom.innerHTML = topology.bottom;
+      }
+
+      essentialToggle.addEventListener('click', () => {
+        const enabled = !body.classList.contains('essential');
+        body.classList.toggle('essential', enabled);
+        essentialToggle.setAttribute('aria-pressed', String(enabled));
+      });
+
+      tabs.forEach((tab, index) => {
+        tab.addEventListener('click', () => selectTopology(tab.dataset.topology));
+        tab.addEventListener('keydown', (event) => {
+          if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) {
+            return;
+          }
+          event.preventDefault();
+          let nextIndex = index;
+          if (event.key === 'ArrowRight') nextIndex = (index + 1) % tabs.length;
+          if (event.key === 'ArrowLeft') nextIndex = (index - 1 + tabs.length) % tabs.length;
+          if (event.key === 'Home') nextIndex = 0;
+          if (event.key === 'End') nextIndex = tabs.length - 1;
+          selectTopology(tabs[nextIndex].dataset.topology, true);
+        });
+      });
+
+      playButton.addEventListener('click', () => {
+        const playing = !map.classList.contains('playing');
+        map.classList.toggle('playing', playing);
+        playButton.setAttribute('aria-pressed', String(playing));
+        playButton.textContent = playing ? '■ Parar animação' : '▶ Animar caminhos';
+      });
+
+      selectTopology('two');
+    })();
+  </script>
+</body>
+</html>
