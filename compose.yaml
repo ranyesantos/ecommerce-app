@@ -1,0 +1,57 @@
+name: inventory-lab
+
+services:
+  catalog_db:
+    image: postgres:18-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    ports:
+      - '5432:5432'
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U "$${POSTGRES_USER}" -d "$${POSTGRES_DB}"']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    volumes:
+      - catalog_db_data:/var/lib/postgresql/data
+      - ./infra/postgres/init-test-database.sql:/docker-entrypoint-initdb.d/init-test-database.sql:ro
+
+  rabbitmq:
+    image: rabbitmq:4.3.5-management-alpine
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_ADMIN_USER}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_ADMIN_PASSWORD}
+    ports:
+      - '5672:5672'
+      - '15672:15672'
+    healthcheck:
+      test: ['CMD', 'rabbitmq-diagnostics', '-q', 'ping']
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+
+  rabbitmq_setup:
+    image: python:3.13-alpine
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    environment:
+      RABBITMQ_ADMIN_USER: ${RABBITMQ_ADMIN_USER}
+      RABBITMQ_ADMIN_PASSWORD: ${RABBITMQ_ADMIN_PASSWORD}
+      RABBITMQ_CATALOG_USER: ${RABBITMQ_CATALOG_USER}
+      RABBITMQ_CATALOG_PASSWORD: ${RABBITMQ_CATALOG_PASSWORD}
+    command: ['python', '/bootstrap/bootstrap.py']
+    restart: 'no'
+    volumes:
+      - ./infra/rabbitmq/bootstrap.py:/bootstrap/bootstrap.py:ro
+      - ./infra/rabbitmq/definitions.json:/config/definitions.json:ro
+
+volumes:
+  catalog_db_data:
+    name: platform_catalog_db_data
+  rabbitmq_data:
