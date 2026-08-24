@@ -1,0 +1,18 @@
+{
+  "vhosts": [
+    { "name": "ecommerce" }
+  ],
+  "exchanges": [
+    {
+      "name": "ecommerce.events",
+      "vhost": "ecommerce",
+      "type": "topic",
+      "durable": true,
+      "auto_delete": false,
+      "internal": false,
+      "arguments": {}
+    }
+  ],
+  "queues": [],
+  "bindings": []
+}
