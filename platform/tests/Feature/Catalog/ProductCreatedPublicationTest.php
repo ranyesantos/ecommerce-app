@@ -11,6 +11,7 @@ use App\Messaging\Contracts\EventPublisher;
 use App\Messaging\Contracts\IntegrationEvent;
 use App\Messaging\Exceptions\EventPublicationFailed;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Mockery;
 use Tests\Support\InMemoryEventPublisher;
@@ -92,7 +93,11 @@ final class ProductCreatedPublicationTest extends TestCase
 
     public function test_it_publishes_only_after_the_product_transaction_commits(): void
     {
-        $this->publisher->beforePublish = function (IntegrationEvent $event): void {
+        $transactionLevel = DB::transactionLevel();
+
+        $this->publisher->beforePublish = function (IntegrationEvent $event) use ($transactionLevel): void {
+            self::assertSame($transactionLevel, DB::transactionLevel());
+
             $productId = $event->envelope()['payload']['product_id'];
 
             self::assertNotNull(Product::query()->find($productId));
