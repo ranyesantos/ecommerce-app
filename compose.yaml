@@ -7,6 +7,7 @@ services:
       POSTGRES_DB: ${POSTGRES_DB}
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      PGDATA: /var/lib/postgresql/18/docker
     ports:
       - '5432:5432'
     healthcheck:
@@ -15,7 +16,7 @@ services:
       timeout: 5s
       retries: 10
     volumes:
-      - catalog_db_data:/var/lib/postgresql/data
+      - catalog_db_data:/var/lib/postgresql
       - ./infra/postgres/init-test-database.sql:/docker-entrypoint-initdb.d/init-test-database.sql:ro
 
   rabbitmq:
