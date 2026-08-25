@@ -34,18 +34,20 @@ final class CreateProduct
 
         $event = ProductCreated::fromProduct($product);
 
-        try {
-            $this->events->publish($event);
-        } catch (EventPublicationFailed $failure) {
-            Log::error('Failed to publish catalog.product.created.', [
-                'event_id' => $event->eventId(),
-                'product_id' => (string) $product->getKey(),
-                'correlation_id' => $event->correlationId(),
-                'exchange' => $failure->exchange,
-                'routing_key' => $failure->routingKey,
-                'exception' => $failure,
-            ]);
-        }
+        DB::afterCommit(function () use ($event, $product): void {
+            try {
+                $this->events->publish($event);
+            } catch (EventPublicationFailed $failure) {
+                Log::error('Failed to publish catalog.product.created.', [
+                    'event_id' => $event->eventId(),
+                    'product_id' => (string) $product->getKey(),
+                    'correlation_id' => $event->correlationId(),
+                    'exchange' => $failure->exchange,
+                    'routing_key' => $failure->routingKey,
+                    'exception' => $failure,
+                ]);
+            }
+        });
 
         return $product;
     }
