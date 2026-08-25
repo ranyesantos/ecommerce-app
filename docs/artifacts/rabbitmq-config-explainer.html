@@ -1,0 +1,790 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Guia visual e amigável para TDAH sobre a configuração do RabbitMQ no inventory-lab.">
+  <title>RabbitMQ no inventory-lab · guia visual</title>
+  <style>
+    :root {
+      --bg: #f4f7f5;
+      --paper: #ffffff;
+      --paper-soft: #eaf1ed;
+      --ink: #17231e;
+      --muted: #61726a;
+      --line: #d6e0da;
+      --accent: #087f5b;
+      --accent-2: #d9480f;
+      --accent-soft: #dff5eb;
+      --warning: #fff3bf;
+      --warning-ink: #6b4f00;
+      --danger-soft: #ffe3e3;
+      --danger-ink: #9b1c1c;
+      --shadow: 0 12px 28px rgba(25, 55, 42, .08);
+      --sans: ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      --mono: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace;
+    }
+
+    :root[data-theme="dark"] {
+      --bg: #101814;
+      --paper: #17231d;
+      --paper-soft: #203129;
+      --ink: #ecf5ef;
+      --muted: #a9bbb0;
+      --line: #30463a;
+      --accent: #65d7aa;
+      --accent-2: #ff9b72;
+      --accent-soft: #163b2e;
+      --warning: #3e3419;
+      --warning-ink: #ffe69a;
+      --danger-soft: #452323;
+      --danger-ink: #ffb4b4;
+      --shadow: 0 12px 28px rgba(0, 0, 0, .2);
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--ink);
+      font: 16px/1.65 var(--sans);
+      -webkit-font-smoothing: antialiased;
+    }
+    button, input { font: inherit; }
+    button { cursor: pointer; }
+    code, pre { font-family: var(--mono); }
+    code { font-size: .88em; color: var(--accent-2); }
+    a { color: var(--accent); }
+
+    .shell {
+      display: grid;
+      grid-template-columns: 275px minmax(0, 1fr);
+      min-height: 100vh;
+    }
+    .side {
+      position: sticky;
+      top: 0;
+      height: 100vh;
+      overflow-y: auto;
+      padding: 28px 20px;
+      background: #153c2e;
+      color: #effaf3;
+    }
+    .brand {
+      margin: 0;
+      font-size: 1.55rem;
+      font-weight: 800;
+      letter-spacing: -.05em;
+      line-height: 1.05;
+    }
+    .brand span { color: #a8e6c7; }
+    .side-note {
+      margin: 14px 0 26px;
+      color: #c6ded1;
+      font-size: .86rem;
+    }
+    .nav-label {
+      margin: 24px 0 8px;
+      color: #a8e6c7;
+      font-size: .68rem;
+      font-weight: 800;
+      letter-spacing: .14em;
+      text-transform: uppercase;
+    }
+    .nav a {
+      display: block;
+      padding: 7px 9px;
+      border-left: 2px solid transparent;
+      color: #d8eee2;
+      font-size: .83rem;
+      text-decoration: none;
+    }
+    .nav a:hover, .nav a.active {
+      border-color: #a8e6c7;
+      background: rgba(255, 255, 255, .08);
+      color: #fff;
+    }
+    .side-tools {
+      display: grid;
+      gap: 8px;
+      margin-top: 25px;
+    }
+    .side-tools button {
+      border: 1px solid rgba(255, 255, 255, .2);
+      background: rgba(255, 255, 255, .08);
+      color: #effaf3;
+      padding: 8px 10px;
+      text-align: left;
+      font-size: .78rem;
+    }
+    .progress {
+      margin-top: 22px;
+      padding: 14px;
+      border: 1px solid rgba(255, 255, 255, .18);
+      background: rgba(255, 255, 255, .06);
+      font-size: .78rem;
+    }
+    .progress strong { display: block; font-size: .68rem; letter-spacing: .12em; }
+    .bar { height: 7px; margin: 10px 0 5px; border-radius: 99px; background: rgba(255, 255, 255, .16); overflow: hidden; }
+    .bar i { display: block; width: 0; height: 100%; background: #a8e6c7; transition: width .25s ease; }
+
+    main { width: 100%; max-width: 1120px; margin: 0 auto; padding: 48px 6vw 92px; }
+    section { scroll-margin-top: 22px; }
+    .hero {
+      display: grid;
+      grid-template-columns: minmax(0, 1.45fr) minmax(260px, .75fr);
+      gap: 28px;
+      align-items: end;
+      padding: 15px 0 46px;
+      border-bottom: 1px solid var(--line);
+    }
+    .eyebrow, .kicker {
+      color: var(--accent);
+      font-size: .72rem;
+      font-weight: 800;
+      letter-spacing: .15em;
+      text-transform: uppercase;
+    }
+    h1, h2, h3 { letter-spacing: -.045em; line-height: 1.08; }
+    h1 { max-width: 760px; margin: 12px 0 17px; font-size: clamp(2.55rem, 6vw, 5.4rem); }
+    h2 { margin: 7px 0 16px; font-size: clamp(1.85rem, 4vw, 3.1rem); }
+    h3 { margin: 3px 0 9px; font-size: 1.2rem; }
+    p { max-width: 75ch; }
+    .lede { max-width: 66ch; margin: 0; color: var(--muted); font-size: 1.13rem; }
+    .hero-note, .callout {
+      border-left: 5px solid var(--accent-2);
+      background: var(--warning);
+      color: var(--warning-ink);
+      padding: 20px 20px 18px;
+    }
+    .hero-note strong { display: block; margin-bottom: 7px; font-size: .76rem; letter-spacing: .1em; }
+    .hero-note p { margin: 0; }
+
+    .toolbar {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      margin: 25px 0 0;
+    }
+    .search {
+      flex: 1;
+      min-width: 180px;
+      border: 1px solid var(--line);
+      background: var(--paper);
+      color: var(--ink);
+      padding: 12px 14px;
+      outline: none;
+    }
+    .search:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+    .result-pill, .pill {
+      display: inline-block;
+      border: 1px solid var(--line);
+      background: var(--paper-soft);
+      color: var(--accent);
+      padding: 5px 9px;
+      font-size: .72rem;
+      font-weight: 800;
+      letter-spacing: .05em;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+
+    .section { margin-top: 63px; }
+    .section-head { display: flex; justify-content: space-between; gap: 20px; align-items: end; margin-bottom: 20px; }
+    .section-head p { margin: 0; color: var(--muted); }
+    .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+    .card {
+      border: 1px solid var(--line);
+      background: var(--paper);
+      padding: 22px;
+      box-shadow: var(--shadow);
+    }
+    .card.wide { grid-column: 1 / -1; }
+    .card p:last-child { margin-bottom: 0; }
+    .muted { color: var(--muted); }
+    .small { font-size: .88rem; }
+    .big-number {
+      display: block;
+      margin-bottom: 6px;
+      color: var(--accent);
+      font-size: 2.1rem;
+      font-weight: 850;
+      letter-spacing: -.06em;
+      line-height: 1;
+    }
+    .status {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 4px 8px;
+      font-size: .72rem;
+      font-weight: 800;
+      letter-spacing: .04em;
+      text-transform: uppercase;
+    }
+    .status.ok { background: var(--accent-soft); color: var(--accent); }
+    .status.no { background: var(--danger-soft); color: var(--danger-ink); }
+    .status.warn { background: var(--warning); color: var(--warning-ink); }
+
+    .flow {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 8px;
+      margin: 17px 0 5px;
+    }
+    .node {
+      min-width: 105px;
+      border: 1px solid var(--line);
+      background: var(--paper-soft);
+      padding: 12px 13px;
+      text-align: center;
+      font-size: .78rem;
+      font-weight: 800;
+    }
+    .node.accent { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); }
+    .arrow { color: var(--accent-2); font-size: 1.35rem; font-weight: 800; }
+    .mini-flow { display: grid; gap: 8px; margin-top: 14px; }
+    .mini-flow > div { display: grid; grid-template-columns: 1fr 1.1fr; gap: 8px; align-items: center; }
+    .mini-flow span { padding: 9px; border: 1px solid var(--line); background: var(--paper-soft); font-size: .78rem; }
+    .mini-flow b { color: var(--accent-2); text-align: center; }
+
+    .table-wrap { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { padding: 11px 10px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; }
+    th { color: var(--accent); font-size: .74rem; letter-spacing: .06em; text-transform: uppercase; }
+    tr:last-child td { border-bottom: 0; }
+
+    .note-list, .number-list { margin: 9px 0 0; padding-left: 20px; }
+    .note-list li, .number-list li { margin: 8px 0; }
+    .number-list li::marker { color: var(--accent); font-weight: 800; }
+    .check-line { display: flex; gap: 9px; align-items: flex-start; padding: 10px 11px; border: 1px solid var(--line); background: var(--paper-soft); }
+    .check-line + .check-line { margin-top: 7px; }
+    .check-line input { margin-top: 5px; accent-color: var(--accent); }
+    .check-line.done span { color: var(--muted); text-decoration: line-through; }
+
+    pre {
+      position: relative;
+      margin: 14px 0 0;
+      padding: 18px;
+      overflow-x: auto;
+      border: 1px solid #263b31;
+      background: #101b16;
+      color: #e4f5e9;
+      font-size: .77rem;
+      line-height: 1.58;
+    }
+    pre button {
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      border: 1px solid rgba(255, 255, 255, .2);
+      background: rgba(255, 255, 255, .1);
+      color: #e4f5e9;
+      padding: 4px 8px;
+      font-size: .68rem;
+    }
+    .code-label { display: inline-block; margin-top: 14px; color: var(--muted); font-size: .75rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
+    details { border-top: 1px solid var(--line); padding: 13px 0; }
+    details:last-child { border-bottom: 1px solid var(--line); }
+    summary { cursor: pointer; font-weight: 800; }
+    details p { margin-bottom: 0; color: var(--muted); }
+    .compare-good { color: var(--accent); font-weight: 700; }
+    .compare-bad { color: var(--danger-ink); font-weight: 700; }
+    .focus-mode .detail { display: none; }
+    .focus-mode .section { margin-top: 42px; }
+    .large-text { font-size: 18px; }
+    .large-text h1 { font-size: clamp(2.8rem, 6vw, 5.8rem); }
+
+    .footer { margin-top: 70px; padding-top: 20px; border-top: 1px solid var(--line); color: var(--muted); font-size: .82rem; }
+    .source { font-size: .8rem; color: var(--muted); }
+    .hidden { display: none !important; }
+
+    @media (max-width: 850px) {
+      .shell { display: block; }
+      .side { position: relative; height: auto; padding: 20px; }
+      .nav { display: flex; gap: 5px; overflow-x: auto; }
+      .nav a { flex: 0 0 auto; white-space: nowrap; }
+      .nav-label, .progress { display: none; }
+      main { padding: 30px 20px 70px; }
+      .hero { grid-template-columns: 1fr; padding-top: 6px; }
+      .grid { grid-template-columns: 1fr; }
+      .card.wide { grid-column: auto; }
+      .section-head { display: block; }
+      .section-head .pill { margin-top: 5px; }
+      .toolbar { align-items: stretch; flex-direction: column; }
+      .result-pill { align-self: flex-start; }
+    }
+    @media print {
+      .side, .toolbar, .side-tools, .progress, pre button { display: none !important; }
+      .shell { display: block; }
+      main { max-width: none; padding: 0; }
+      .card { box-shadow: none; break-inside: avoid; }
+      .section { margin-top: 32px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <aside class="side">
+      <p class="brand">rabbit<span>mq</span><br>sem sobrecarga</p>
+      <p class="side-note">Um mapa em camadas para entender o que já temos, o que falta e onde cada configuração deve morar.</p>
+      <nav class="nav" aria-label="Navegação do guia">
+        <div class="nav-label">Comece aqui</div>
+        <a href="#inicio">Resumo de 20 segundos</a>
+        <a href="#mapa">Mapa da mensagem</a>
+        <div class="nav-label">Ideias principais</div>
+        <a href="#consumer-groups">Filas por consumer group</a>
+        <a href="#volume">Volume persistente</a>
+        <a href="#configuracao">Como configurar</a>
+        <a href="#por-que-rabbit">Por que no RabbitMQ?</a>
+        <a href="#diagnostico">Diagnóstico do laboratório</a>
+        <a href="#proximo">Próximo passo</a>
+        <a href="#checklist">Checklist</a>
+      </nav>
+      <div class="side-tools">
+        <button id="themeButton" type="button">☼ Alternar tema</button>
+        <button id="focusButton" type="button">◌ Modo foco</button>
+        <button id="textButton" type="button">Aa Texto maior</button>
+      </div>
+      <div class="progress" aria-live="polite">
+        <strong>PROGRESSO DA LEITURA</strong>
+        <div class="bar"><i id="progressBar"></i></div>
+        <span><b id="progressCount">0</b> de 8 itens marcados</span>
+      </div>
+    </aside>
+
+    <main>
+      <section id="inicio" class="hero">
+        <div>
+          <div class="eyebrow">inventory-lab · decisão da etapa 2a</div>
+          <h1>RabbitMQ sem precisar segurar tudo na cabeça.</h1>
+          <p class="lede">Este guia explica, em partes pequenas, o que encontramos em <code>php-rabbitmq</code>, o que combina com o nosso projeto e o que precisa mudar antes de virar a infraestrutura do <code>inventory-lab</code>.</p>
+        </div>
+        <aside class="hero-note">
+          <strong>SE VOCÊ LEMBRAR DE UMA COISA</strong>
+          <p><b>O RabbitMQ recebe e roteia.</b> O código da aplicação decide o que fazer com a mensagem. A topologia — exchanges, filas e bindings — deve ser uma configuração compartilhada e previsível do broker.</p>
+        </aside>
+      </section>
+
+      <div class="toolbar">
+        <input id="search" class="search" type="search" placeholder="Buscar: volume, DLQ, consumer group..." aria-label="Buscar no guia">
+        <span id="resultPill" class="result-pill">10 blocos</span>
+      </div>
+
+      <section class="section" aria-labelledby="resumo-title">
+        <div class="section-head">
+          <div><div class="kicker">Antes dos detalhes</div><h2 id="resumo-title">A resposta curta</h2></div>
+          <span class="pill">3 ideias</span>
+        </div>
+        <div class="grid">
+          <article class="card">
+            <span class="big-number">01</span>
+            <h3>O laboratório é uma boa base</h3>
+            <p class="muted">Ele já tem imagem com Management UI, portas locais, credenciais de estudo, healthcheck e volume nomeado.</p>
+          </article>
+          <article class="card">
+            <span class="big-number">02</span>
+            <h3>Ele ainda não é a topologia do projeto</h3>
+            <p class="muted">O código declara uma exchange <code>direct</code> chamada <code>study.direct</code> e uma fila de exemplo. Nosso projeto precisa de uma exchange <code>topic</code>, filas por grupo e retry/DLQ.</p>
+          </article>
+          <article class="card">
+            <span class="big-number">03</span>
+            <h3>O próximo artefato é declarativo</h3>
+            <p class="muted">A ideia é colocar a topologia em <code>rabbitmq.conf</code> + <code>definitions.json</code>. Os serviços depois usam essa topologia; não recriam a infraestrutura como efeito colateral.</p>
+          </article>
+        </div>
+      </section>
+
+      <section id="mapa" class="section" aria-labelledby="mapa-title">
+        <div class="section-head">
+          <div><div class="kicker">Modelo mental</div><h2 id="mapa-title">O caminho de uma mensagem</h2></div>
+          <span class="pill">siga as setas</span>
+        </div>
+        <div class="card">
+          <div class="flow" aria-label="Producer para exchange, binding, queue e consumer">
+            <span class="node">Producer<br><small>publica</small></span><span class="arrow">→</span>
+            <span class="node accent">Exchange<br><small>roteia</small></span><span class="arrow">→</span>
+            <span class="node">Binding<br><small>regra</small></span><span class="arrow">→</span>
+            <span class="node accent">Queue<br><small>espera</small></span><span class="arrow">→</span>
+            <span class="node">Consumer<br><small>processa</small></span>
+          </div>
+          <div class="callout">
+            <b>Regra simples:</b> exchange não guarda a mensagem para sempre e consumer não escolhe uma exchange. A exchange decide o destino; a queue segura a mensagem; o consumer executa a regra de negócio e envia ACK depois do efeito importante.
+          </div>
+        </div>
+      </section>
+
+      <section id="consumer-groups" class="section" aria-labelledby="groups-title">
+        <div class="section-head">
+          <div><div class="kicker">01 · a ideia mais importante</div><h2 id="groups-title">Filas por consumer group</h2></div>
+          <span class="pill">não é uma fila por processo</span>
+        </div>
+        <div class="grid">
+          <article class="card wide">
+            <h3>Pense em caixas de entrada por responsabilidade</h3>
+            <p>Um <b>consumer group</b> é um grupo lógico de consumidores que faz o mesmo trabalho. Todos os workers do mesmo grupo compartilham uma fila. Assim, uma mensagem é processada por <b>um</b> worker daquele grupo — não por todos os workers.</p>
+            <div class="mini-flow">
+              <div><span><b>ecommerce.events</b><br><small>evento: <code>order.created</code></small></span><b>→</b><span><b>stock-service.order-created</b><br><small>grupo: estoque</small></span></div>
+              <div><span><b>ecommerce.events</b><br><small>o mesmo evento</small></span><b>→</b><span><b>order-history.order-created</b><br><small>grupo: histórico</small></span></div>
+            </div>
+            <p class="small muted">A exchange pode entregar uma cópia para cada fila de grupo. Depois, dentro da fila do estoque, dois workers dividem o trabalho entre si.</p>
+          </article>
+          <article class="card">
+            <h3>Dois workers, um grupo</h3>
+            <div class="flow"><span class="node">fila estoque</span><span class="arrow">→</span><span class="node">worker A</span><span class="arrow">/</span><span class="node">worker B</span></div>
+            <p>Se chegam 10 pedidos, A e B podem dividir os 10. O pedido não deve ser reservado duas vezes só porque existem dois processos.</p>
+          </article>
+          <article class="card">
+            <h3>Dois grupos, duas cópias</h3>
+            <div class="flow"><span class="node accent">evento</span><span class="arrow">→</span><span class="node">estoque</span><span class="node">histórico</span></div>
+            <p>Estoque precisa reservar. Histórico precisa registrar. São efeitos diferentes, então precisam de filas diferentes.</p>
+          </article>
+          <article class="card wide">
+            <h3>Por que não usar uma fila única para tudo?</h3>
+            <div class="table-wrap">
+              <table>
+                <thead><tr><th>Se todos compartilham a mesma fila</th><th>O problema</th><th>Com uma fila por grupo</th></tr></thead>
+                <tbody>
+                  <tr><td>Estoque consome uma mensagem</td><td>Histórico não recebe a mensagem.</td><td>Estoque e histórico recebem suas próprias cópias.</td></tr>
+                  <tr><td>Um worker lento segura a fila</td><td>Responsabilidades diferentes ficam acopladas.</td><td>Cada grupo escala e monitora separadamente.</td></tr>
+                  <tr><td>Uma falha vai para retry</td><td>O retry de estoque interfere no histórico.</td><td>Retry e DLQ ficam isolados por responsabilidade.</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </article>
+        </div>
+        <div class="callout detail"><b>Nome que vamos usar como referência:</b> <code>stock-service.order-created</code>. O documento antigo usava <code>stock-service.order-placement-requested</code> como exemplo, mas o fluxo aprovado diz que o estoque consome <code>order.created</code>. O nome deve seguir o evento real.</div>
+      </section>
+
+      <section id="volume" class="section" aria-labelledby="volume-title">
+        <div class="section-head">
+          <div><div class="kicker">02 · sobreviver ao reinício</div><h2 id="volume-title">Volume persistente</h2></div>
+          <span class="pill">container não é memória eterna</span>
+        </div>
+        <div class="grid">
+          <article class="card wide">
+            <h3>O que o volume faz?</h3>
+            <p>O container pode ser descartado e recriado. O volume nomeado fica fora do ciclo de vida do container e guarda o estado do RabbitMQ em <code>/var/lib/rabbitmq</code>: usuários, vhosts, definições carregadas, estado das filas e mensagens persistidas.</p>
+            <div class="flow"><span class="node">container</span><span class="arrow">↔</span><span class="node accent">rabbitmq_data</span><span class="arrow">↔</span><span class="node">próximo container</span></div>
+          </article>
+          <article class="card">
+            <h3>Reiniciar é diferente de apagar</h3>
+            <ul class="note-list">
+              <li><code>docker compose restart</code>: reinicia o processo; o volume continua.</li>
+              <li><code>docker compose down</code>: remove containers, preserva o volume nomeado.</li>
+              <li><code>docker compose down -v</code>: remove também o volume e o estado local.</li>
+            </ul>
+          </article>
+          <article class="card">
+            <h3>Volume não substitui durabilidade</h3>
+            <p>São camadas diferentes. O volume persiste o diretório do broker. Para uma mensagem sobreviver a reinícios, a fila precisa ser durável e a mensagem precisa ser publicada como persistente.</p>
+            <p class="small muted">E ainda usamos publisher confirms para saber se o broker aceitou a publicação.</p>
+          </article>
+          <article class="card wide">
+            <div class="table-wrap">
+              <table>
+                <thead><tr><th>Camada</th><th>O que protege</th><th>O que não garante sozinha</th></tr></thead>
+                <tbody>
+                  <tr><td>Volume nomeado</td><td>Estado do RabbitMQ fora do container.</td><td>Não transforma mensagem transitória em persistente.</td></tr>
+                  <tr><td>Queue durável</td><td>Topologia da fila após reinício.</td><td>Não garante que uma mensagem foi gravada.</td></tr>
+                  <tr><td>Mensagem persistente</td><td>Mensagem em uma queue durável.</td><td>Não confirma que o broker a aceitou.</td></tr>
+                  <tr><td>Publisher confirm</td><td>Resposta do broker ao publisher.</td><td>Não confirma que o consumer terminou.</td></tr>
+                  <tr><td>Consumer ACK</td><td>Processamento terminou antes de remover a mensagem.</td><td>Não impede redelivery; idempotência continua necessária.</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <section id="configuracao" class="section" aria-labelledby="config-title">
+        <div class="section-head">
+          <div><div class="kicker">03 · configuração em camadas</div><h2 id="config-title">Como o RabbitMQ é configurado</h2></div>
+          <span class="pill">infraestrutura como contrato</span>
+        </div>
+        <div class="card">
+          <p>Não existe um único arquivo mágico. Existem camadas com responsabilidades diferentes:</p>
+          <div class="flow">
+            <span class="node">Compose<br><small>cria o container</small></span><span class="arrow">→</span>
+            <span class="node">rabbitmq.conf<br><small>configura o servidor</small></span><span class="arrow">→</span>
+            <span class="node accent">definitions.json<br><small>cria a topologia</small></span><span class="arrow">→</span>
+            <span class="node">aplicações<br><small>publicam e consomem</small></span>
+          </div>
+        </div>
+        <div class="grid">
+          <article class="card">
+            <h3>1. Docker Compose</h3>
+            <p>Define como o broker roda localmente: imagem, portas, credenciais de desenvolvimento, volume, healthcheck e arquivos montados.</p>
+            <span class="code-label">exemplo conceitual</span>
+            <pre><button data-copy type="button">copiar</button><code>services:
+  rabbitmq:
+    image: rabbitmq:4-management
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+      - ./rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf:ro
+      - ./definitions.json:/etc/rabbitmq/definitions.json:ro</code></pre>
+          </article>
+          <article class="card">
+            <h3>2. rabbitmq.conf</h3>
+            <p>Faz o servidor saber onde estão as definições que devem ser carregadas. Também pode concentrar ajustes do Management UI, listeners e limites operacionais.</p>
+            <span class="code-label">arquivo do servidor</span>
+            <pre><button data-copy type="button">copiar</button><code>management.load_definitions = /etc/rabbitmq/definitions.json</code></pre>
+          </article>
+          <article class="card wide">
+            <h3>3. definitions.json</h3>
+            <p>Descreve a topologia: vhost, exchange, filas, bindings e políticas. Abaixo está um recorte ilustrativo, não um arquivo final de produção.</p>
+            <pre><button data-copy type="button">copiar</button><code>{
+  "vhosts": [{ "name": "/" }],
+  "exchanges": [{
+    "name": "ecommerce.events",
+    "vhost": "/",
+    "type": "topic",
+    "durable": true,
+    "auto_delete": false,
+    "arguments": {}
+  }],
+  "queues": [{
+    "name": "stock-service.order-created",
+    "vhost": "/",
+    "durable": true,
+    "auto_delete": false,
+    "arguments": {}
+  }],
+  "bindings": [{
+    "source": "ecommerce.events",
+    "vhost": "/",
+    "destination": "stock-service.order-created",
+    "destination_type": "queue",
+    "routing_key": "order.created",
+    "arguments": {}
+  }]
+}</code></pre>
+          </article>
+          <article class="card">
+            <h3>4. Políticas de retry e DLQ</h3>
+            <p>As filas de retry recebem uma mensagem, aguardam um TTL e usam dead-letter para devolvê-la ao fluxo correto. O desenho prevê <code>5s</code>, <code>30s</code> e <code>2m</code>, seguido de uma DLQ terminal.</p>
+            <div class="flow"><span class="node">work</span><span class="arrow">→</span><span class="node">retry 5s</span><span class="arrow">→</span><span class="node">retry 30s</span><span class="arrow">→</span><span class="node">retry 2m</span><span class="arrow">→</span><span class="node accent">DLQ</span></div>
+          </article>
+          <article class="card">
+            <h3>5. Aplicação</h3>
+            <p>O serviço publica com uma routing key, consome sua fila, processa o efeito de negócio e envia ACK. Ele conhece o contrato; não precisa ser o dono da existência da topologia.</p>
+            <p class="small muted">Em produção, a aplicação deve falhar de forma clara se a fila esperada não existir.</p>
+          </article>
+        </div>
+      </section>
+
+      <section id="por-que-rabbit" class="section" aria-labelledby="why-title">
+        <div class="section-head">
+          <div><div class="kicker">04 · decisão de arquitetura</div><h2 id="why-title">Por que configurar no RabbitMQ?</h2></div>
+          <span class="pill">código ≠ planta do prédio</span>
+        </div>
+        <div class="card wide">
+          <p>Uma analogia útil: <b>o RabbitMQ é a planta e a sinalização do prédio; o código é o trabalho realizado dentro das salas.</b> O worker pode mudar sem mudar a planta. A planta pode ser auditada sem abrir cada serviço.</p>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Configurar no RabbitMQ</th><th>Deixar no código</th><th>Por que essa divisão ajuda</th></tr></thead>
+              <tbody>
+                <tr><td class="compare-good">Exchange, queue e binding</td><td>Qual payload publicar</td><td>Topologia é compartilhada por PHP, Node e futuras linguagens.</td></tr>
+                <tr><td class="compare-good">TTL, DLX e DLQ</td><td>Classificação do erro</td><td>O atraso e o destino terminal são operacionais; a regra para retry depende do negócio.</td></tr>
+                <tr><td class="compare-good">Usuários, vhosts e permissões</td><td>ACK depois do commit</td><td>Segurança e acesso ficam centralizados; o efeito de negócio fica testável no serviço.</td></tr>
+                <tr><td class="compare-good">Durabilidade e políticas</td><td>Idempotência por <code>event_id</code></td><td>Persistência do transporte e deduplicação da aplicação são problemas diferentes.</td></tr>
+                <tr><td class="compare-good">Nome e isolamento de filas</td><td>Retry/compensação do domínio</td><td>Cada consumer group pode escalar e ser observado sem acoplamento indevido.</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <div class="grid">
+          <article class="card">
+            <h3>Vantagem 1 · uma fonte de verdade</h3>
+            <p>Se cada serviço declara a topologia “por garantia”, surgem nomes diferentes, argumentos conflitantes e mudanças que dependem de qual processo iniciou primeiro. Um arquivo de definições torna a infraestrutura revisável.</p>
+          </article>
+          <article class="card">
+            <h3>Vantagem 2 · ambiente reproduzível</h3>
+            <p>Subir um ambiente novo deve criar a mesma exchange, as mesmas filas e as mesmas políticas. Isso reduz o clássico “na minha máquina funcionou”.</p>
+          </article>
+          <article class="card">
+            <h3>Vantagem 3 · operação independente</h3>
+            <p>Uma pessoa operando o broker consegue inspecionar bindings, profundidade da fila e DLQ no Management UI sem ler o código de todos os serviços.</p>
+          </article>
+          <article class="card">
+            <h3>Vantagem 4 · código mais focado</h3>
+            <p>O serviço fica responsável por negócio: reservar estoque, persistir pedido, decidir se um erro é recuperável e ser idempotente. A infraestrutura não fica espalhada em callbacks.</p>
+          </article>
+        </div>
+        <details class="detail">
+          <summary>Então nunca se declara uma fila no código?</summary>
+          <p>Não é uma regra absoluta. Um bootstrap local pode declarar ou verificar recursos para testes. A recomendação é que a definição oficial e revisável da infraestrutura esteja no RabbitMQ/infra; o código pode fazer uma verificação de compatibilidade e falhar cedo, mas não deve silenciosamente mudar a topologia de produção.</p>
+        </details>
+      </section>
+
+      <section id="diagnostico" class="section" aria-labelledby="diagnostic-title">
+        <div class="section-head">
+          <div><div class="kicker">05 · o que encontramos</div><h2 id="diagnostic-title">Diagnóstico do php-rabbitmq</h2></div>
+          <span class="pill">base + lacunas</span>
+        </div>
+        <div class="card wide">
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Peça</th><th>Estado encontrado</th><th>Leitura para o inventory-lab</th></tr></thead>
+              <tbody>
+                <tr><td>Imagem</td><td><code>rabbitmq:4-management</code></td><td><span class="status ok">✓ base aproveitável</span> Management UI já incluída; depois devemos fixar uma versão testada.</td></tr>
+                <tr><td>Portas</td><td><code>5672</code> e <code>15672</code></td><td><span class="status ok">✓ adequado localmente</span> AMQP e painel disponíveis.</td></tr>
+                <tr><td>Volume</td><td><code>rabbitmq_data:/var/lib/rabbitmq</code></td><td><span class="status ok">✓ correto</span> Preserva o estado do broker entre recriações.</td></tr>
+                <tr><td>Healthcheck</td><td><code>rabbitmq-diagnostics -q ping</code></td><td><span class="status ok">✓ bom começo</span> Depois podemos usar dependência saudável no Compose.</td></tr>
+                <tr><td>Exchange</td><td><code>study.direct</code>, tipo <code>direct</code></td><td><span class="status no">✕ divergente</span> Precisamos de <code>ecommerce.events</code>, tipo <code>topic</code>.</td></tr>
+                <tr><td>Fila</td><td><code>study.reports</code></td><td><span class="status no">✕ exemplo</span> Precisamos de uma fila por consumer group.</td></tr>
+                <tr><td>Retry/DLQ</td><td>Descritos no README, mas não provisionados pelo Compose atual</td><td><span class="status no">✕ faltando</span> Devem entrar nas definições da etapa 2a.</td></tr>
+                <tr><td>Credenciais</td><td><code>study/study</code> fixas no Compose e no PHP</td><td><span class="status warn">⚠ local</span> Aceitável para estudo; no projeto, usar variáveis de ambiente.</td></tr>
+                <tr><td>Container name</td><td><code>php-rabbitmq</code></td><td><span class="status warn">⚠ colisão</span> Evitar nome fixo ao trazer para o monorepo.</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="callout detail"><b>Documentação desatualizada:</b> o README menciona scripts como <code>retry-worker.php</code> e <code>failure-worker.php</code>, mas eles não aparecem no diretório atual. Isso reforça a importância de separar a documentação didática da configuração oficial do novo projeto.</div>
+        </div>
+      </section>
+
+      <section id="proximo" class="section" aria-labelledby="next-title">
+        <div class="section-head">
+          <div><div class="kicker">06 · sequência sem sobrecarga</div><h2 id="next-title">O que faremos quando implementar</h2></div>
+          <span class="pill">somente RabbitMQ</span>
+        </div>
+        <div class="card">
+          <ol class="number-list">
+            <li>Colocar a infraestrutura em uma pasta do monorepo, por exemplo <code>infra/docker/rabbitmq/</code>.</li>
+            <li>Reaproveitar imagem, portas, volume e healthcheck do laboratório.</li>
+            <li>Adicionar <code>rabbitmq.conf</code> e <code>definitions.json</code> montados como somente leitura.</li>
+            <li>Criar a exchange <code>ecommerce.events</code> como <code>topic</code>.</li>
+            <li>Definir as filas por consumer group e a escada de retry <code>5s → 30s → 2m → DLQ</code>.</li>
+            <li>Validar no Management UI: exchange, bindings, filas, mensagens persistentes e DLQ.</li>
+            <li>Registrar a decisão em uma ADR antes de nascer o primeiro serviço Node.</li>
+          </ol>
+          <div class="callout"><b>Limite desta etapa:</b> ainda não criaremos producer, consumer, serviço de estoque ou observabilidade completa. O objetivo é o broker iniciar com uma topologia compreensível, repetível e alinhada ao desenho.</div>
+        </div>
+      </section>
+
+      <section id="checklist" class="section" aria-labelledby="check-title">
+        <div class="section-head">
+          <div><div class="kicker">Revisão curta</div><h2 id="check-title">Checklist para fixar</h2></div>
+          <span class="pill">salvo neste navegador</span>
+        </div>
+        <div class="card" id="checklistBox"></div>
+      </section>
+
+      <section class="section" aria-labelledby="glossary-title">
+        <div class="section-head">
+          <div><div class="kicker">Se aparecer uma palavra estranha</div><h2 id="glossary-title">Mini glossário</h2></div>
+        </div>
+        <div class="card">
+          <details><summary>Exchange</summary><p>Entrada de roteamento. Recebe a mensagem e usa bindings/routing keys para escolher filas.</p></details>
+          <details><summary>Queue</summary><p>Fila durável de mensagens pendentes. Um consumer lê e confirma o que processou.</p></details>
+          <details><summary>Binding</summary><p>Regra que conecta uma exchange a uma queue, normalmente usando uma routing key ou padrão de topic.</p></details>
+          <details><summary>DLX / DLQ</summary><p>Dead Letter Exchange é o mecanismo de desvio; Dead Letter Queue é a fila onde mensagens rejeitadas ou esgotadas ficam preservadas.</p></details>
+          <details><summary>Consumer group</summary><p>Responsabilidade lógica que precisa receber uma cópia do evento. Workers do mesmo grupo compartilham uma queue.</p></details>
+          <details><summary>At-least-once</summary><p>A mensagem pode ser entregue novamente. Por isso, o efeito precisa ser idempotente: repetir não pode reservar ou cobrar duas vezes.</p></details>
+        </div>
+      </section>
+
+      <footer class="footer">
+        Material criado para o <code>inventory-lab</code>, com base nas decisões registradas em <code>docs/ADRs/ADRs.md</code>, <code>docs/superpowers/specs/2026-08-20-platform-design.md</code> e na análise do laboratório <code>php-rabbitmq</code>.
+      </footer>
+    </main>
+  </div>
+
+  <script>
+    const checklistItems = [
+      'Consigo explicar: exchange roteia, queue espera e consumer processa.',
+      'Entendi por que cada consumer group precisa de sua própria queue.',
+      'Sei que workers do mesmo grupo compartilham uma fila e dividem mensagens.',
+      'Sei a diferença entre volume nomeado e mensagem persistente.',
+      'Consigo separar Compose, rabbitmq.conf, definitions.json e código.',
+      'Entendi por que retry e DLQ devem ser configurados como infraestrutura.',
+      'Sei por que a aplicação ainda precisa de ACK e idempotência.',
+      'Consigo dizer o que falta no php-rabbitmq para o inventory-lab.'
+    ];
+    const storageKey = 'inventory-lab-rabbitmq-guide-checks';
+    const saved = JSON.parse(localStorage.getItem(storageKey) || '[]');
+    const checklist = document.querySelector('#checklistBox');
+    const progressBar = document.querySelector('#progressBar');
+    const progressCount = document.querySelector('#progressCount');
+
+    function updateProgress() {
+      const count = saved.filter(Boolean).length;
+      progressCount.textContent = count;
+      progressBar.style.width = `${(count / checklistItems.length) * 100}%`;
+    }
+
+    checklistItems.forEach((item, index) => {
+      const label = document.createElement('label');
+      label.className = 'check-line' + (saved[index] ? ' done' : '');
+      label.innerHTML = `<input type="checkbox" ${saved[index] ? 'checked' : ''}><span>${item}</span>`;
+      label.querySelector('input').addEventListener('change', (event) => {
+        saved[index] = event.target.checked;
+        label.classList.toggle('done', event.target.checked);
+        localStorage.setItem(storageKey, JSON.stringify(saved));
+        updateProgress();
+      });
+      checklist.append(label);
+    });
+    updateProgress();
+
+    document.querySelector('#themeButton').addEventListener('click', () => {
+      const root = document.documentElement;
+      const next = root.dataset.theme === 'dark' ? 'light' : 'dark';
+      root.dataset.theme = next;
+      localStorage.setItem('inventory-lab-rabbitmq-theme', next);
+    });
+    const storedTheme = localStorage.getItem('inventory-lab-rabbitmq-theme');
+    if (storedTheme) document.documentElement.dataset.theme = storedTheme;
+
+    document.querySelector('#focusButton').addEventListener('click', () => {
+      document.body.classList.toggle('focus-mode');
+    });
+    document.querySelector('#textButton').addEventListener('click', () => {
+      document.body.classList.toggle('large-text');
+    });
+
+    document.querySelectorAll('[data-copy]').forEach((button) => {
+      button.addEventListener('click', async () => {
+        const text = button.parentElement.innerText.replace('copiar', '').trim();
+        try {
+          await navigator.clipboard.writeText(text);
+          button.textContent = 'copiado';
+          setTimeout(() => { button.textContent = 'copiar'; }, 1200);
+        } catch (error) {
+          button.textContent = 'selecione';
+          setTimeout(() => { button.textContent = 'copiar'; }, 1200);
+        }
+      });
+    });
+
+    const search = document.querySelector('#search');
+    const resultPill = document.querySelector('#resultPill');
+    const searchableSections = [...document.querySelectorAll('main > section')];
+    search.addEventListener('input', () => {
+      const query = search.value.trim().toLowerCase();
+      let visible = 0;
+      searchableSections.forEach((section) => {
+        const matches = !query || section.innerText.toLowerCase().includes(query);
+        section.classList.toggle('hidden', !matches);
+        if (matches) visible += 1;
+      });
+      resultPill.textContent = query ? `${visible} bloco${visible === 1 ? '' : 's'} encontrado${visible === 1 ? '' : 's'}` : '10 blocos';
+    });
+
+    const links = [...document.querySelectorAll('.nav a')];
+    const sections = [...document.querySelectorAll('main > section[id]')];
+    window.addEventListener('scroll', () => {
+      let active = 'inicio';
+      sections.forEach((section) => {
+        if (window.scrollY >= section.offsetTop - 150) active = section.id;
+      });
+      links.forEach((link) => link.classList.toggle('active', link.getAttribute('href') === `#${active}`));
+    }, { passive: true });
+  </script>
+</body>
+</html>
