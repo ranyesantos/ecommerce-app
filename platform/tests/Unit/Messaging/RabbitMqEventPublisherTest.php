@@ -4,12 +4,12 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Messaging;
 
-use Carbon\CarbonImmutable;
 use App\Features\Catalog\Events\ProductCreated;
 use App\Features\Catalog\Models\Product;
 use App\Messaging\Contracts\AmqpConnectionFactory;
 use App\Messaging\Exceptions\EventPublicationFailed;
 use App\Messaging\RabbitMqEventPublisher;
+use Carbon\CarbonImmutable;
 use Mockery;
 use PhpAmqpLib\Channel\AMQPChannel;
 use PhpAmqpLib\Connection\AbstractConnection;
