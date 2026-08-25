@@ -114,12 +114,12 @@ Before relying on a package's API, confirm its installed version:
 - If you have modified any PHP files, you must run `vendor/bin/pint --dirty --format agent` before finalizing changes to ensure your code matches the project's expected style.
 - Do not run `vendor/bin/pint --test --format agent`, simply run `vendor/bin/pint --format agent` to fix any formatting issues.
 
-=== phpunit/core rules ===
+=== pest/core rules ===
 
-# PHPUnit
+# Pest
 
-- This application uses PHPUnit for testing. All tests must be written as PHPUnit classes. Use `php artisan make:test --phpunit {name}` to create a new test.
-- If you see a test using "Pest", convert it to PHPUnit.
+- This application uses Pest 5 on top of PHPUnit. New and modified tests must follow the existing Pest pattern: `uses(...)` for traits, `beforeEach(...)` for shared setup, `it(...)` for test cases, and `expect(...)` for value assertions.
+- Use `php artisan make:test --pest {name}` when creating a test. Keep PHPUnit class-style tests only when an existing integration or framework constraint requires that form.
 - Every time a test has been updated, run that singular test.
 - When the tests relating to your feature are passing, ask the user if they would like to also run the entire test suite to make sure everything is still passing.
 - Tests should cover all happy paths, failure paths, and edge cases.
