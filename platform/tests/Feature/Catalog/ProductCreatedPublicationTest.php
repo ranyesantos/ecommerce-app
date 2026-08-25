@@ -2,8 +2,6 @@
 
 declare(strict_types=1);
 
-namespace Tests\Feature\Catalog;
-
 use App\Features\Catalog\Actions\CreateProduct;
 use App\Features\Catalog\Events\ProductCreated;
 use App\Features\Catalog\Models\Product;
@@ -15,102 +13,90 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Mockery;
 use Tests\Support\InMemoryEventPublisher;
-use Tests\TestCase;
 use Throwable;
 
-final class ProductCreatedPublicationTest extends TestCase
-{
-    use RefreshDatabase;
+uses(RefreshDatabase::class);
 
-    private InMemoryEventPublisher $publisher;
+beforeEach(function (): void {
+    $this->publisher = new InMemoryEventPublisher;
+    $this->app->instance(EventPublisher::class, $this->publisher);
+});
 
-    protected function setUp(): void
-    {
-        parent::setUp();
+it('publishes a product created event after creating a product', function (): void {
+    $response = $this->post(route('products.store'), [
+        'sku' => 'PUBLISH-1',
+        'name' => 'Published product',
+        'description' => 'Product description',
+        'price_cents' => 1990,
+    ]);
 
-        $this->publisher = new InMemoryEventPublisher;
-        $this->app->instance(EventPublisher::class, $this->publisher);
-    }
+    $product = Product::query()->where('sku', 'PUBLISH-1')->firstOrFail();
 
-    public function test_it_publishes_a_product_created_event_after_creating_a_product(): void
-    {
-        $response = $this->post(route('products.store'), [
-            'sku' => 'PUBLISH-1',
-            'name' => 'Published product',
-            'description' => 'Product description',
-            'price_cents' => 1990,
-        ]);
+    $response->assertRedirect(route('products.show', $product));
+    expect($this->publisher->published)->toHaveCount(1);
+    expect($this->publisher->published[0])->toBeInstanceOf(ProductCreated::class);
 
-        $product = Product::query()->where('sku', 'PUBLISH-1')->firstOrFail();
+    $event = $this->publisher->published[0];
 
-        $response->assertRedirect(route('products.show', $product));
-        self::assertCount(1, $this->publisher->published);
-        self::assertInstanceOf(ProductCreated::class, $this->publisher->published[0]);
-
-        $event = $this->publisher->published[0];
-
-        self::assertSame('catalog.product.created', $event->eventType());
-        self::assertSame('catalog.product.created', $event->routingKey());
-        self::assertSame([
+    expect($event->eventType())->toBe('catalog.product.created')
+        ->and($event->routingKey())->toBe('catalog.product.created')
+        ->and($event->envelope()['payload'])->toBe([
             'product_id' => (string) $product->getKey(),
             'sku' => $product->sku,
             'name' => $product->name,
             'description' => $product->description,
             'price_cents' => $product->price_cents,
             'is_active' => $product->is_active,
-        ], $event->envelope()['payload']);
-    }
-
-    public function test_it_keeps_the_product_and_http_result_when_publication_fails(): void
-    {
-        $this->publisher->failure = new EventPublicationFailed(
-            exchange: 'ecommerce.events',
-            routingKey: 'catalog.product.created',
-            message: 'Broker unavailable.',
-        );
-        Log::spy();
-
-        $response = $this->post(route('products.store'), [
-            'sku' => 'BROKER-DOWN-1',
-            'name' => 'Broker down product',
-            'description' => 'Product description',
-            'price_cents' => 2990,
         ]);
+});
 
-        $response->assertRedirect();
-        $this->assertDatabaseHas('products', ['sku' => 'BROKER-DOWN-1']);
-        Log::shouldHaveReceived('error')->once()->with(
-            'Failed to publish catalog.product.created.',
-            Mockery::on(fn (array $context): bool => $context['product_id'] !== ''
-                && $context['event_id'] !== ''
-                && $context['correlation_id'] !== ''
-                && $context['exchange'] === 'ecommerce.events'
-                && $context['routing_key'] === 'catalog.product.created'
-                && $context['exception'] instanceof Throwable
-            ),
-        );
-    }
+it('keeps the product and http result when publication fails', function (): void {
+    $this->publisher->failure = new EventPublicationFailed(
+        exchange: 'ecommerce.events',
+        routingKey: 'catalog.product.created',
+        message: 'Broker unavailable.',
+    );
+    Log::spy();
 
-    public function test_it_publishes_only_after_the_product_transaction_commits(): void
-    {
-        $transactionLevel = DB::transactionLevel();
+    $response = $this->post(route('products.store'), [
+        'sku' => 'BROKER-DOWN-1',
+        'name' => 'Broker down product',
+        'description' => 'Product description',
+        'price_cents' => 2990,
+    ]);
 
-        $this->publisher->beforePublish = function (IntegrationEvent $event) use ($transactionLevel): void {
-            self::assertSame($transactionLevel, DB::transactionLevel());
+    $response->assertRedirect();
+    $this->assertDatabaseHas('products', ['sku' => 'BROKER-DOWN-1']);
+    Log::shouldHaveReceived('error')->once()->with(
+        'Failed to publish catalog.product.created.',
+        Mockery::on(fn (array $context): bool => $context['product_id'] !== ''
+            && $context['event_id'] !== ''
+            && $context['correlation_id'] !== ''
+            && $context['exchange'] === 'ecommerce.events'
+            && $context['routing_key'] === 'catalog.product.created'
+            && $context['exception'] instanceof Throwable
+        ),
+    );
+});
 
-            $productId = $event->envelope()['payload']['product_id'];
+it('publishes only after the product transaction commits', function (): void {
+    $transactionLevel = DB::transactionLevel();
 
-            self::assertNotNull(Product::query()->find($productId));
-        };
+    $this->publisher->beforePublish = function (IntegrationEvent $event) use ($transactionLevel): void {
+        expect(DB::transactionLevel())->toBe($transactionLevel);
 
-        $product = resolve(CreateProduct::class)->handle([
-            'sku' => 'ORDER-1',
-            'name' => 'Order product',
-            'description' => 'Product description',
-            'price_cents' => 3990,
-        ]);
+        $productId = $event->envelope()['payload']['product_id'];
 
-        self::assertSame('ORDER-1', $product->sku);
-        self::assertCount(1, $this->publisher->published);
-    }
-}
+        expect(Product::query()->find($productId))->not->toBeNull();
+    };
+
+    $product = resolve(CreateProduct::class)->handle([
+        'sku' => 'ORDER-1',
+        'name' => 'Order product',
+        'description' => 'Product description',
+        'price_cents' => 3990,
+    ]);
+
+    expect($product->sku)->toBe('ORDER-1')
+        ->and($this->publisher->published)->toHaveCount(1);
+});
