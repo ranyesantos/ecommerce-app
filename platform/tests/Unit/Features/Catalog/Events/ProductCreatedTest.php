@@ -4,12 +4,12 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Features\Catalog\Events;
 
+use Carbon\CarbonImmutable;
 use App\Features\Catalog\Events\ProductCreated;
 use App\Features\Catalog\Models\Product;
-use DateTimeImmutable;
 use PHPUnit\Framework\TestCase;
 
-class ProductCreatedTest extends TestCase
+final class ProductCreatedTest extends TestCase
 {
     public function test_it_builds_a_versioned_product_created_envelope(): void
     {
@@ -27,12 +27,12 @@ class ProductCreatedTest extends TestCase
         $event = ProductCreated::fromProduct(
             product: $product,
             eventId: '0198f000-0000-7000-8000-000000000001',
-            occurredAt: new DateTimeImmutable('2026-08-24T17:30:00.000Z'),
+            occurredAt: CarbonImmutable::parse('2026-08-24T17:30:00.000Z'),
             correlationId: '0198f000-0000-7000-8000-000000000002',
         );
 
-        self::assertSame('catalog.product.created', $event->routingKey());
-        self::assertSame([
+        $this->assertSame('catalog.product.created', $event->routingKey());
+        $this->assertSame([
             'event_id' => '0198f000-0000-7000-8000-000000000001',
             'event_type' => 'catalog.product.created',
             'event_version' => 1,
@@ -48,8 +48,8 @@ class ProductCreatedTest extends TestCase
             ],
         ], $event->envelope());
 
-        self::assertArrayNotHasKey('quantity', $event->envelope()['payload']);
-        self::assertArrayNotHasKey('stock', $event->envelope()['payload']);
-        self::assertArrayNotHasKey('deleted_at', $event->envelope()['payload']);
+        $this->assertArrayNotHasKey('quantity', $event->envelope()['payload']);
+        $this->assertArrayNotHasKey('stock', $event->envelope()['payload']);
+        $this->assertArrayNotHasKey('deleted_at', $event->envelope()['payload']);
     }
 }

@@ -21,7 +21,7 @@ final class InMemoryEventPublisher implements EventPublisher
 
     public function publish(IntegrationEvent $event): void
     {
-        if ($this->failure !== null) {
+        if ($this->failure instanceof EventPublicationFailed) {
             throw $this->failure;
         }
 

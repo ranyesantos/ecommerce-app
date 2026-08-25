@@ -9,17 +9,17 @@ use PhpAmqpLib\Connection\AbstractConnection;
 use PhpAmqpLib\Connection\AMQPConnectionConfig;
 use PhpAmqpLib\Connection\AMQPConnectionFactory as PhpAmqpConnectionFactory;
 
-final class PhpAmqpLibConnectionFactory implements AmqpConnectionFactory
+final readonly class PhpAmqpLibConnectionFactory implements AmqpConnectionFactory
 {
     public function __construct(
-        private readonly string $host,
-        private readonly int $port,
-        private readonly string $user,
-        private readonly string $password,
-        private readonly string $vhost,
-        private readonly float $connectionTimeout,
-        private readonly float $readTimeout,
-        private readonly float $writeTimeout,
+        private string $host,
+        private int $port,
+        private string $user,
+        private string $password,
+        private string $vhost,
+        private float $connectionTimeout,
+        private float $readTimeout,
+        private float $writeTimeout,
     ) {}
 
     public function connect(): AbstractConnection

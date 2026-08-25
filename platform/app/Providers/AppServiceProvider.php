@@ -18,26 +18,22 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        $this->app->singleton(AmqpConnectionFactory::class, function (): AmqpConnectionFactory {
-            return new PhpAmqpLibConnectionFactory(
-                host: (string) config('rabbitmq.host'),
-                port: (int) config('rabbitmq.port'),
-                user: (string) config('rabbitmq.user'),
-                password: (string) config('rabbitmq.password'),
-                vhost: (string) config('rabbitmq.vhost'),
-                connectionTimeout: (float) config('rabbitmq.connection_timeout'),
-                readTimeout: (float) config('rabbitmq.read_timeout'),
-                writeTimeout: (float) config('rabbitmq.write_timeout'),
-            );
-        });
+        $this->app->singleton(AmqpConnectionFactory::class, fn(): AmqpConnectionFactory => new PhpAmqpLibConnectionFactory(
+            host: config()->string('rabbitmq.host'),
+            port: config()->integer('rabbitmq.port'),
+            user: config()->string('rabbitmq.user'),
+            password: config()->string('rabbitmq.password'),
+            vhost: config()->string('rabbitmq.vhost'),
+            connectionTimeout: config()->float('rabbitmq.connection_timeout'),
+            readTimeout: config()->float('rabbitmq.read_timeout'),
+            writeTimeout: config()->float('rabbitmq.write_timeout'),
+        ));
 
-        $this->app->singleton(EventPublisher::class, function (Application $application): EventPublisher {
-            return new RabbitMqEventPublisher(
-                connections: $application->make(AmqpConnectionFactory::class),
-                exchange: (string) config('rabbitmq.exchange'),
-                confirmTimeout: (float) config('rabbitmq.publisher_confirm_timeout'),
-            );
-        });
+        $this->app->singleton(EventPublisher::class, fn(Application $application): EventPublisher => new RabbitMqEventPublisher(
+            connections: $application->make(AmqpConnectionFactory::class),
+            exchange: config()->string('rabbitmq.exchange'),
+            confirmTimeout: config()->float('rabbitmq.publisher_confirm_timeout'),
+        ));
     }
 
     /**
