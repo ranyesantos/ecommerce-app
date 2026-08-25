@@ -10,20 +10,20 @@ use DateTimeImmutable;
 use DateTimeZone;
 use Illuminate\Support\Str;
 
-final class ProductCreated implements IntegrationEvent
+final readonly class ProductCreated implements IntegrationEvent
 {
-    private const EVENT_TYPE = 'catalog.product.created';
+    private const string EVENT_TYPE = 'catalog.product.created';
 
-    private const EVENT_VERSION = 1;
+    private const int EVENT_VERSION = 1;
 
     /**
      * @param  array<string, mixed>  $payload
      */
     private function __construct(
-        private readonly string $id,
-        private readonly DateTimeImmutable $timestamp,
-        private readonly string $correlation,
-        private readonly array $payload,
+        private string $id,
+        private DateTimeImmutable $timestamp,
+        private string $correlation,
+        private array $payload,
     ) {}
 
     public static function fromProduct(
@@ -81,13 +81,13 @@ final class ProductCreated implements IntegrationEvent
     public function envelope(): array
     {
         return [
-            'event_id' => $this->eventId(),
+            'event_id' => $this->id,
             'event_type' => $this->eventType(),
             'event_version' => $this->eventVersion(),
-            'occurred_at' => $this->occurredAt()
+            'occurred_at' => $this->timestamp
                 ->setTimezone(new DateTimeZone('UTC'))
                 ->format('Y-m-d\TH:i:s.v\Z'),
-            'correlation_id' => $this->correlationId(),
+            'correlation_id' => $this->correlation,
             'payload' => $this->payload,
         ];
     }

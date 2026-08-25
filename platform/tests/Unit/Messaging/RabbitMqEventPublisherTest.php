@@ -4,12 +4,12 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Messaging;
 
+use Carbon\CarbonImmutable;
 use App\Features\Catalog\Events\ProductCreated;
 use App\Features\Catalog\Models\Product;
 use App\Messaging\Contracts\AmqpConnectionFactory;
 use App\Messaging\Exceptions\EventPublicationFailed;
 use App\Messaging\RabbitMqEventPublisher;
-use DateTimeImmutable;
 use Mockery;
 use PhpAmqpLib\Channel\AMQPChannel;
 use PhpAmqpLib\Connection\AbstractConnection;
@@ -18,7 +18,7 @@ use PhpAmqpLib\Wire\AMQPTable;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
 
-class RabbitMqEventPublisherTest extends TestCase
+final class RabbitMqEventPublisherTest extends TestCase
 {
     protected function tearDown(): void
     {
@@ -45,24 +45,21 @@ class RabbitMqEventPublisherTest extends TestCase
             ->once()
             ->ordered()
             ->withArgs(function (AMQPMessage $message, string $exchange, string $routingKey, bool $mandatory) use ($event): bool {
-                self::assertSame('ecommerce.events', $exchange);
-                self::assertSame('catalog.product.created', $routingKey);
-                self::assertFalse($mandatory);
-                self::assertSame(
-                    json_encode($event->envelope(), JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
-                    $message->getBody(),
-                );
-                self::assertSame('application/json', $message->get('content_type'));
-                self::assertSame('utf-8', $message->get('content_encoding'));
-                self::assertSame(AMQPMessage::DELIVERY_MODE_PERSISTENT, $message->get('delivery_mode'));
-                self::assertSame($event->eventId(), $message->get('message_id'));
-                self::assertSame($event->correlationId(), $message->get('correlation_id'));
-                self::assertSame($event->eventType(), $message->get('type'));
-                self::assertSame($event->occurredAt()->getTimestamp(), $message->get('timestamp'));
+                $this->assertSame('ecommerce.events', $exchange);
+                $this->assertSame('catalog.product.created', $routingKey);
+                $this->assertFalse($mandatory);
+                $this->assertSame(json_encode($event->envelope(), JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), $message->getBody());
+                $this->assertSame('application/json', $message->get('content_type'));
+                $this->assertSame('utf-8', $message->get('content_encoding'));
+                $this->assertSame(AMQPMessage::DELIVERY_MODE_PERSISTENT, $message->get('delivery_mode'));
+                $this->assertSame($event->eventId(), $message->get('message_id'));
+                $this->assertSame($event->correlationId(), $message->get('correlation_id'));
+                $this->assertSame($event->eventType(), $message->get('type'));
+                $this->assertSame($event->occurredAt()->getTimestamp(), $message->get('timestamp'));
 
                 $headers = $message->get('application_headers');
-                self::assertInstanceOf(AMQPTable::class, $headers);
-                self::assertSame(['event_version' => $event->eventVersion()], $headers->getNativeData());
+                $this->assertInstanceOf(AMQPTable::class, $headers);
+                $this->assertSame(['event_version' => $event->eventVersion()], $headers->getNativeData());
 
                 return true;
             });
@@ -78,7 +75,7 @@ class RabbitMqEventPublisherTest extends TestCase
 
         $publisher->publish($event);
 
-        self::assertTrue(true);
+        $this->assertTrue(condition: true);
     }
 
     public function test_it_wraps_confirmation_failures_with_publication_context(): void
@@ -109,12 +106,12 @@ class RabbitMqEventPublisherTest extends TestCase
 
         try {
             $publisher->publish($event);
-        } catch (EventPublicationFailed $publicationFailure) {
-            self::assertSame('ecommerce.events', $publicationFailure->exchange);
-            self::assertSame('catalog.product.created', $publicationFailure->routingKey);
-            self::assertSame($failure, $publicationFailure->getPrevious());
+        } catch (EventPublicationFailed $eventPublicationFailed) {
+            $this->assertSame('ecommerce.events', $eventPublicationFailed->exchange);
+            $this->assertSame('catalog.product.created', $eventPublicationFailed->routingKey);
+            $this->assertSame($failure, $eventPublicationFailed->getPrevious());
 
-            throw $publicationFailure;
+            throw $eventPublicationFailed;
         }
     }
 
@@ -142,7 +139,7 @@ class RabbitMqEventPublisherTest extends TestCase
 
         $publisher->publish($event);
 
-        self::assertTrue(true);
+        $this->assertTrue(condition: true);
     }
 
     private function event(): ProductCreated
@@ -158,7 +155,7 @@ class RabbitMqEventPublisherTest extends TestCase
         return ProductCreated::fromProduct(
             product: $product,
             eventId: '0198f000-0000-7000-8000-000000000001',
-            occurredAt: new DateTimeImmutable('2026-08-24T17:30:00.000Z'),
+            occurredAt: CarbonImmutable::parse('2026-08-24T17:30:00.000Z'),
             correlationId: '0198f000-0000-7000-8000-000000000002',
         );
     }

@@ -9,19 +9,12 @@ use Throwable;
 
 final class EventPublicationFailed extends RuntimeException
 {
-    public readonly string $exchange;
-
-    public readonly string $routingKey;
-
     public function __construct(
-        string $exchange,
-        string $routingKey,
+        public readonly string $exchange,
+        public readonly string $routingKey,
         string $message,
         ?Throwable $previous = null,
     ) {
-        $this->exchange = $exchange;
-        $this->routingKey = $routingKey;
-
         parent::__construct($message, previous: $previous);
     }
 

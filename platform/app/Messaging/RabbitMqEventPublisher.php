@@ -12,12 +12,12 @@ use PhpAmqpLib\Message\AMQPMessage;
 use PhpAmqpLib\Wire\AMQPTable;
 use Throwable;
 
-final class RabbitMqEventPublisher implements EventPublisher
+final readonly class RabbitMqEventPublisher implements EventPublisher
 {
     public function __construct(
-        private readonly AmqpConnectionFactory $connections,
-        private readonly string $exchange,
-        private readonly float $confirmTimeout,
+        private AmqpConnectionFactory $connections,
+        private string $exchange,
+        private float $confirmTimeout,
     ) {}
 
     public function publish(IntegrationEvent $event): void
@@ -36,7 +36,7 @@ final class RabbitMqEventPublisher implements EventPublisher
                 json_encode($event->envelope(), JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
                 $this->messageProperties($event),
             );
-            $channel->basic_publish($message, $this->exchange, $event->routingKey(), false);
+            $channel->basic_publish($message, $this->exchange, $event->routingKey(), mandatory: false);
             $channel->wait_for_pending_acks($this->confirmTimeout);
         } catch (EventPublicationFailed $failure) {
             throw $failure;

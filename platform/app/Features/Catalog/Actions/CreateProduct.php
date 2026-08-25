@@ -14,9 +14,9 @@ use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
-final class CreateProduct
+final readonly class CreateProduct
 {
-    public function __construct(private readonly EventPublisher $events) {}
+    public function __construct(private EventPublisher $events) {}
 
     /** @param array<string, mixed> $attributes */
     public function handle(array $attributes): Product
@@ -37,14 +37,14 @@ final class CreateProduct
         DB::afterCommit(function () use ($event, $product): void {
             try {
                 $this->events->publish($event);
-            } catch (EventPublicationFailed $failure) {
+            } catch (EventPublicationFailed $eventPublicationFailed) {
                 Log::error('Failed to publish catalog.product.created.', [
                     'event_id' => $event->eventId(),
                     'product_id' => (string) $product->getKey(),
                     'correlation_id' => $event->correlationId(),
-                    'exchange' => $failure->exchange,
-                    'routing_key' => $failure->routingKey,
-                    'exception' => $failure,
+                    'exchange' => $eventPublicationFailed->exchange,
+                    'routing_key' => $eventPublicationFailed->routingKey,
+                    'exception' => $eventPublicationFailed,
                 ]);
             }
         });
