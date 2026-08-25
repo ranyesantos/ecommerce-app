@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Features\Catalog\Events;
 
-use Carbon\CarbonImmutable;
 use App\Features\Catalog\Events\ProductCreated;
 use App\Features\Catalog\Models\Product;
+use Carbon\CarbonImmutable;
 use PHPUnit\Framework\TestCase;
 
 final class ProductCreatedTest extends TestCase

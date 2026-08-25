@@ -18,7 +18,7 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        $this->app->singleton(AmqpConnectionFactory::class, fn(): AmqpConnectionFactory => new PhpAmqpLibConnectionFactory(
+        $this->app->singleton(AmqpConnectionFactory::class, fn (): AmqpConnectionFactory => new PhpAmqpLibConnectionFactory(
             host: config()->string('rabbitmq.host'),
             port: config()->integer('rabbitmq.port'),
             user: config()->string('rabbitmq.user'),
@@ -29,7 +29,7 @@ class AppServiceProvider extends ServiceProvider
             writeTimeout: config()->float('rabbitmq.write_timeout'),
         ));
 
-        $this->app->singleton(EventPublisher::class, fn(Application $application): EventPublisher => new RabbitMqEventPublisher(
+        $this->app->singleton(EventPublisher::class, fn (Application $application): EventPublisher => new RabbitMqEventPublisher(
             connections: $application->make(AmqpConnectionFactory::class),
             exchange: config()->string('rabbitmq.exchange'),
             confirmTimeout: config()->float('rabbitmq.publisher_confirm_timeout'),
