@@ -1,0 +1,152 @@
+name: Continuous Integration
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  PHP_VERSION: '8.5'
+  PHP_EXTENSIONS: mbstring,pgsql,pdo_pgsql,xml,ctype,fileinfo,json,curl,openssl,dom,zip
+  PHP_INI_PROPERTIES: memory_limit=512M
+  COMPOSER_FLAGS: --prefer-dist --no-interaction --no-progress --optimize-autoloader
+
+jobs:
+  platform-tests:
+    name: Platform / Tests and build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:18-alpine
+        env:
+          POSTGRES_DB: catalog_db_testing
+          POSTGRES_USER: catalog
+          POSTGRES_PASSWORD: catalog
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 3s
+          --health-timeout 3s
+          --health-retries 10
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ env.PHP_VERSION }}
+          extensions: ${{ env.PHP_EXTENSIONS }}
+          ini-values: ${{ env.PHP_INI_PROPERTIES }}
+          coverage: none
+          tools: composer:v2
+
+      - name: Install Composer dependencies
+        working-directory: platform
+        run: composer install ${{ env.COMPOSER_FLAGS }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: platform/package-lock.json
+
+      - name: Build frontend assets
+        working-directory: platform
+        run: |
+          npm ci
+          npm run build
+
+      - name: Prepare test environment
+        working-directory: platform
+        run: |
+          cp .env.example .env
+          php artisan key:generate --no-interaction
+          php artisan config:clear --no-interaction
+
+      - name: Run tests
+        working-directory: platform
+        run: php artisan test --compact
+
+  platform-pint:
+    name: Platform / Pint
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ env.PHP_VERSION }}
+          extensions: ${{ env.PHP_EXTENSIONS }}
+          ini-values: ${{ env.PHP_INI_PROPERTIES }}
+          coverage: none
+          tools: composer:v2
+
+      - name: Install Composer dependencies
+        working-directory: platform
+        run: composer install ${{ env.COMPOSER_FLAGS }}
+
+      - name: Run Pint
+        working-directory: platform
+        run: vendor/bin/pint --test --parallel
+
+  platform-rector:
+    name: Platform / Rector
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ env.PHP_VERSION }}
+          extensions: ${{ env.PHP_EXTENSIONS }}
+          ini-values: ${{ env.PHP_INI_PROPERTIES }}
+          coverage: none
+          tools: composer:v2
+
+      - name: Install Composer dependencies
+        working-directory: platform
+        run: composer install ${{ env.COMPOSER_FLAGS }}
+
+      - name: Run Rector
+        working-directory: platform
+        run: vendor/bin/rector --dry-run --output-format=github
+
+  platform-phpstan:
+    name: Platform / PHPStan
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ env.PHP_VERSION }}
+          extensions: ${{ env.PHP_EXTENSIONS }}
+          ini-values: ${{ env.PHP_INI_PROPERTIES }}
+          coverage: none
+          tools: composer:v2
+
+      - name: Install Composer dependencies
+        working-directory: platform
+        run: composer install ${{ env.COMPOSER_FLAGS }}
+
+      - name: Run PHPStan
+        working-directory: platform
+        run: vendor/bin/phpstan analyse --ansi --error-format=github
