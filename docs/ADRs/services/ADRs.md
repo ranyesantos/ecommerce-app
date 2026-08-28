@@ -37,7 +37,7 @@ As decisões de negócio e mensageria dos ADRs existentes continuam válidas. A 
 | Health checks | Implementação própria e pequena | Expor liveness e readiness sem forçar a versão incompatível do Terminus. |
 | Estrutura | Slice by Feature pragmático | Agrupar código pela funcionalidade sem DDD formal. |
 
-## 3. Repositório e gerador
+## 3. Repositório e criação dos serviços
 
 Os serviços Node ficam neste monorepo:
 
@@ -61,24 +61,9 @@ Regras do workspace:
 - Existe somente um `pnpm-lock.yaml`, na raiz.
 - Não executar `npm install` ou `bun install` dentro dos serviços.
 - Não usar Nx ou Turborepo inicialmente.
-
-O gerador não ficará neste repositório. Ele terá um repositório Git separado e conterá seu código e os arquivos de template:
-
-```text
-nestjs-microservice-generator/
-├── src/
-├── templates/service/
-├── package.json
-└── README.md
-```
-
-Regras do gerador:
-
-- versões estáveis recebem tags como `v1.0.0`;
-- o serviço gerado registra a origem em `.template-version`;
-- o resultado não contém `.git` nem lockfile próprio;
-- uma feature demonstrativa removível documenta HTTP, Prisma, RabbitMQ, erros e testes;
-- a suíte do gerador comprova que o resultado instala, compila e passa nos testes.
+- Cada serviço será criado manualmente dentro de `services/`, seguindo esta documentação.
+- O primeiro serviço implementado servirá como referência prática para os próximos.
+- Novos serviços copiarão apenas a estrutura técnica necessária e receberão suas próprias regras de domínio.
 
 ## 4. Estrutura de cada serviço
 
@@ -157,7 +142,7 @@ Convenções:
 
 ## 6. Tratamento centralizado de erros
 
-O template inclui tratamento centralizado como regra obrigatória.
+Cada serviço inclui tratamento centralizado como regra obrigatória.
 
 - Features lançam erros tipados com `code`, `kind`, mensagem segura e detalhes seguros opcionais.
 - Categorias iniciais: `validation`, `not_found`, `conflict`, `business` e `transient`.
@@ -228,11 +213,11 @@ Os ADRs continuam divididos em:
 1. Ler este arquivo e a especificação detalhada vinculada na seção 1.
 2. Não reabrir decisões aprovadas sem um requisito novo.
 3. Revisar e aprovar a especificação escrita.
-4. Criar o plano de implementação do repositório externo do gerador.
-5. Implementar e validar o gerador e seu template.
-6. Gerar o primeiro serviço Node e integrá-lo ao pnpm workspace.
-7. Criar especificações separadas para o comportamento de cada domínio.
+4. Escolher o primeiro serviço Node a ser implementado.
+5. Especificar seu comportamento de domínio sem misturá-lo com decisões dos demais serviços.
+6. Criar manualmente o serviço em `services/` e integrá-lo ao pnpm workspace.
+7. Usar o primeiro serviço validado como referência para criar os próximos manualmente.
 
 Prompt sugerido:
 
-> Leia `docs/ADRs/services/ADRs.md` e `docs/superpowers/specs/2026-08-28-nestjs-microservices-design.md`. Continue sem reabrir decisões aprovadas. Execute primeiro o plano do repositório externo do gerador NestJS; a criação do serviço real pertence a um plano posterior.
+> Leia `docs/ADRs/services/ADRs.md` e `docs/superpowers/specs/2026-08-28-nestjs-microservices-design.md`. Continue sem reabrir decisões aprovadas. Escolha o primeiro serviço Node, especifique seu domínio e crie seu scaffold manualmente dentro de `services/`.

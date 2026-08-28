@@ -8,7 +8,7 @@
 
 Definir uma base reproduzível para criar `orders-service`, `stock-service` e `payments-service` sem repetir decisões de infraestrutura em cada implementação. O padrão deve ser simples para estudo, consistente entre serviços e capaz de evoluir sem exigir DDD ou uma plataforma interna prematura.
 
-O primeiro artefato a ser implementado será um gerador mantido em repositório separado. Ele produzirá serviços compatíveis com o pnpm workspace deste monorepo.
+Os serviços serão criados manualmente dentro do pnpm workspace. O primeiro serviço validado será a referência prática para repetir a estrutura técnica nos demais.
 
 ## 2. Limites do sistema
 
@@ -33,9 +33,7 @@ O primeiro artefato a ser implementado será um gerador mantido em repositório 
 - Pino para logs JSON.
 - Health checks próprios e pequenos; `@nestjs/terminus` não será instalado enquanto não declarar suporte ao NestJS 12.
 
-## 4. Organização dos repositórios
-
-### 4.1 Monorepo da aplicação
+## 4. Organização do monorepo
 
 ```text
 inventory-lab/
@@ -54,21 +52,6 @@ inventory-lab/
 O workspace possui um único lockfile. Cada serviço mantém `package.json`, Prisma schema, migrations, build, Dockerfile e deploy independentes. Nx e Turborepo não serão introduzidos até existir um problema concreto de coordenação ou desempenho.
 
 `packages/contracts` armazena envelopes e contratos compartilhados pelos serviços Node. Contratos usados pelo Laravel também são publicados em formatos independentes de linguagem, como OpenAPI e JSON Schema; Laravel não importa tipos TypeScript.
-
-### 4.2 Repositório externo do gerador
-
-```text
-nestjs-microservice-generator/
-├── src/
-├── templates/
-│   └── service/
-├── package.json
-└── README.md
-```
-
-O gerador e os templates não ficam no `inventory-lab`. O repositório externo recebe tags para versões estáveis. O serviço gerado contém `.template-version`, mas não contém `.git` nem lockfile próprio.
-
-A suíte do gerador deve criar um serviço temporário e comprovar que o resultado instala, compila e passa nos testes. A forma de distribuição inicial pode ser execução a partir do clone do repositório; publicação em registry não é requisito.
 
 ## 5. Arquitetura de um serviço
 
@@ -170,7 +153,7 @@ O serviço falha cedo se sua configuração obrigatória for inválida. Features
 
 ## 9. Tratamento centralizado de erros
 
-O template define um contrato simples de erro de aplicação com:
+Cada serviço define um contrato simples de erro de aplicação com:
 
 - `code` estável para consumidores e testes;
 - `kind`: `validation`, `not_found`, `conflict`, `business` ou `transient`;
@@ -199,7 +182,7 @@ Pino escreve JSON em stdout. Os campos mínimos são serviço, papel (`api` ou `
 
 No encerramento, a API deixa de aceitar tráfego e o worker cancela novos consumos, aguarda o trabalho em andamento dentro do limite configurado e então fecha canais RabbitMQ e Prisma. Falhas fatais encerram o processo para que o supervisor o reinicie.
 
-Prometheus, OpenTelemetry, Loki, Grafana e Jaeger/Tempo não fazem parte do primeiro template.
+Prometheus, OpenTelemetry, Loki, Grafana e Jaeger/Tempo não fazem parte do primeiro serviço Node.
 
 ## 11. Estratégia de testes
 
@@ -224,9 +207,9 @@ A feature demonstrativa deve cobrir:
 
 PostgreSQL e RabbitMQ reais não são iniciados pela suíte inicial. Testes de integração, Testcontainers, Compose de testes e E2E serão introduzidos somente quando um requisito justificar seu custo.
 
-## 12. Conteúdo obrigatório do template
+## 12. Conteúdo obrigatório do scaffold manual
 
-O gerador entrega:
+Cada serviço deve ser criado com:
 
 - entrypoints e módulos separados para API e worker;
 - Slice by Feature e feature demonstrativa removível;
@@ -240,28 +223,27 @@ O gerador entrega:
 - idempotência demonstrada com fakes e ponto de extensão para Inbox real;
 - graceful shutdown;
 - Jest, Supertest, fakes e testes de feature;
-- Dockerfile, `.env.example` e `.template-version`;
+- Dockerfile e `.env.example`;
 - scripts de desenvolvimento, build, execução, teste e migration;
 - README para configurar, executar e remover/adaptar a feature demonstrativa.
 
 O resultado não inclui observabilidade avançada, autenticação interna, Outbox, Nx, Turborepo, Kubernetes ou abstrações de domínio genéricas.
 
-## 13. Critérios de aceitação do gerador
+## 13. Critérios de aceitação do scaffold
 
-1. Um comando cria um serviço nomeado no diretório de destino.
-2. O resultado não contém Git ou lockfile aninhado.
+1. O serviço está em `services/<nome>-service` e possui seu próprio `package.json`.
+2. O serviço não contém Git ou lockfile aninhado.
 3. O serviço é reconhecido pelo pnpm workspace do monorepo.
 4. TypeScript compila em modo strict.
 5. API e worker iniciam separadamente.
 6. Ambos respondem aos health checks correspondentes.
 7. A feature de exemplo demonstra HTTP, Prisma, RabbitMQ e erros centralizados.
 8. Todos os testes de feature passam sem Docker.
-9. OpenAPI e JSON Schema podem ser gerados de forma reproduzível.
-10. A versão do template fica registrada em `.template-version`.
+9. OpenAPI e JSON Schema podem ser produzidos de forma reproduzível.
 
 ## 14. Decisões futuras
 
-Estas escolhas não bloqueiam a implementação do gerador:
+Estas escolhas não bloqueiam a implementação do primeiro serviço Node:
 
 - autenticação e autorização entre aplicações;
 - ambiente de deploy, secrets e política detalhada de CI/CD;
