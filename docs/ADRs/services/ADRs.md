@@ -1,4 +1,4 @@
-****# Decisões dos microsserviços Node
+# Decisões dos microsserviços Node
 
 **Atualizado em:** 2026-08-28
 **Status:** desenho tecnológico global aprovado; implementação ainda não iniciada
@@ -17,13 +17,13 @@ Este repositório é um monorepo de estudo de arquitetura distribuída e RabbitM
 - RabbitMQ é o meio preferencial para comandos assíncronos e eventos.
 - HTTP interno é usado quando uma consulta exige resposta imediata.
 
-As decisões de negócio e mensageria dos ADRs existentes continuam válidas. A especificação tecnológica detalhada está em [`docs/superpowers/specs/2026-08-28-nestjs-microservices-design.md`](docs/superpowers/specs/2026-08-28-nestjs-microservices-design.md).
+As decisões de negócio e mensageria dos ADRs existentes continuam válidas. A especificação tecnológica detalhada está em [`2026-08-28-nestjs-microservices-design.md`](../../superpowers/specs/2026-08-28-nestjs-microservices-design.md).
 
 ## 2. Stack aprovada
 
 | Tema | Decisão | Para que serve |
 |---|---|---|
-| Runtime | Node.js 24 LTS | Uniformizar uma versão suportada nos serviços. |
+| Runtime | Node.js 24 LTS, mínimo 24.15 para o tooling NestJS | Uniformizar uma versão suportada nos serviços. |
 | Linguagem | TypeScript `strict` com `NodeNext` | Manter tipos e resolução de módulos explícitos. |
 | Framework | NestJS 12 | Fornecer módulos, injeção de dependência e lifecycle padronizados. |
 | HTTP | Express padrão do NestJS | Maximizar compatibilidade e previsibilidade. |
@@ -34,7 +34,7 @@ As decisões de negócio e mensageria dos ADRs existentes continuam válidas. A 
 | Testes | Jest + Supertest | Executar testes de feature e exercitar HTTP. |
 | Workspace | pnpm workspaces | Centralizar instalação e manter um lockfile. |
 | Logs | Pino em JSON | Produzir logs estruturados em stdout. |
-| Health checks | `@nestjs/terminus` | Expor liveness e readiness uniformes. |
+| Health checks | Implementação própria e pequena | Expor liveness e readiness sem forçar a versão incompatível do Terminus. |
 | Estrutura | Slice by Feature pragmático | Agrupar código pela funcionalidade sem DDD formal. |
 
 ## 3. Repositório e gerador
@@ -175,6 +175,7 @@ O template inclui tratamento centralizado como regra obrigatória.
 - Pino envia logs JSON para stdout.
 - IDs de correlação são propagados entre Laravel, HTTP e mensagens.
 - API e worker expõem `/health/live` e `/health/ready`.
+- Não usar `@nestjs/terminus` enquanto ele não declarar compatibilidade com NestJS 12.
 - O worker usa uma porta administrativa interna e não expõe endpoints de negócio.
 - Liveness verifica somente se o processo está vivo.
 - Readiness da API verifica apenas dependências essenciais ao tráfego HTTP.
@@ -234,4 +235,4 @@ Os ADRs continuam divididos em:
 
 Prompt sugerido:
 
-> Leia `ARCHITECTURE-DECISIONS.md` e `docs/superpowers/specs/2026-08-28-nestjs-microservices-design.md`. Continue sem reabrir decisões aprovadas. Se a especificação estiver aprovada, crie um plano para implementar primeiro o repositório externo do gerador NestJS e seu template.
+> Leia `docs/ADRs/services/ADRs.md` e `docs/superpowers/specs/2026-08-28-nestjs-microservices-design.md`. Continue sem reabrir decisões aprovadas. Execute primeiro o plano do repositório externo do gerador NestJS; a criação do serviço real pertence a um plano posterior.

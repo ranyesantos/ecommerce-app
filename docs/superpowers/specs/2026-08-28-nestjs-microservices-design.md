@@ -1,7 +1,7 @@
 # Design tecnológico dos microsserviços NestJS
 
 **Data:** 2026-08-28
-**Status:** desenho aprovado; aguardando revisão da especificação
+**Status:** desenho aprovado
 **Escopo:** padrão tecnológico, estrutural e operacional dos futuros serviços Node
 
 ## 1. Objetivo
@@ -22,7 +22,7 @@ O primeiro artefato a ser implementado será um gerador mantido em repositório 
 
 ## 3. Stack
 
-- Node.js 24 LTS.
+- Node.js 24 LTS, no mínimo 24.15 para executar o tooling do NestJS 12.
 - TypeScript em modo `strict`, com `module` e `moduleResolution` em `NodeNext`.
 - NestJS 12 com adapter Express padrão.
 - PostgreSQL e Prisma.
@@ -31,7 +31,7 @@ O primeiro artefato a ser implementado será um gerador mantido em repositório 
 - Jest e Supertest.
 - pnpm workspaces.
 - Pino para logs JSON.
-- `@nestjs/terminus` para health checks.
+- Health checks próprios e pequenos; `@nestjs/terminus` não será instalado enquanto não declarar suporte ao NestJS 12.
 
 ## 4. Organização dos repositórios
 
@@ -190,6 +190,8 @@ API e worker expõem:
 
 - `/health/live`: estado do processo, sem depender de serviços externos;
 - `/health/ready`: capacidade de assumir trabalho.
+
+Os endpoints usam controllers e indicadores próprios. Essa substituição evita forçar `@nestjs/terminus@11.1.1`, cujo peer dependency aceita apenas NestJS 10 e 11. A implementação deve preservar interfaces pequenas para permitir migração futura sem alterar os endpoints.
 
 O worker abre uma porta HTTP administrativa interna sem endpoints de negócio. Sua readiness verifica PostgreSQL, conexão/canal RabbitMQ e registro dos consumers. A API verifica somente dependências indispensáveis às rotas servidas.
 
