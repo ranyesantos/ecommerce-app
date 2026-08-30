@@ -24,24 +24,23 @@ services/
         │   ├── logging/
         │   └── messaging/
         └── features/
-            └── stock/
-                ├── commands/
-                │   ├── initialize-stock/
-                │   │   ├── consumers/
-                │   │   ├── schemas/
-                │   │   └── tests/
-                │   ├── receive-stock/
-                │   │   ├── consumers/
-                │   │   ├── schemas/
-                │   │   └── tests/
-                │   └── adjust-stock/
-                │       ├── consumers/
-                │       ├── schemas/
-                │       └── tests/
-                └── queries/
+            ├── initialize-stock/
+            │   ├── consumers/
+            │   ├── schemas/
+            │   └── tests/
+            ├── receive-stock/
+            │   ├── consumers/
+            │   ├── schemas/
+            │   └── tests/
+            └── adjust-stock/
+                ├── consumers/
+                ├── schemas/
+                └── tests/
 ```
 
-`shared` reserva os pontos de extensão para infraestrutura transversal. `features/stock/commands` separa os três casos de uso do primeiro incremento, e `queries` preserva a distinção organizacional do CQRS pragmático sem introduzir framework, bus ou banco separado.
+`shared` reserva os pontos de extensão para infraestrutura transversal. Cada diretório diretamente abaixo de `features` é uma slice vertical que reúne a entrada, os schemas e os testes de um único caso de uso. O serviço inteiro já pertence ao domínio de Estoque, portanto não existe um agrupamento redundante `features/stock`.
+
+O CQRS permanece pragmático e conceitual: `initialize-stock`, `receive-stock` e `adjust-stock` são commands por seu comportamento. Uma futura query nascerá como sua própria slice, por exemplo `features/get-stock-item`, sem pastas globais `commands` e `queries`.
 
 Não serão criadas pastas próprias para Ledger ou projeções. Essas responsabilidades ainda não possuem componentes concretos; uma abstração só será extraída quando a implementação revelar lógica compartilhada real.
 
