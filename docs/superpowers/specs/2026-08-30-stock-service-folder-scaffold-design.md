@@ -6,36 +6,35 @@
 
 ## Objetivo
 
-Criar o esqueleto físico mínimo do `stock-service` em `services/stock-service`, alinhado às convenções dos serviços NestJS e ao CQRS pragmático já decidido. Como o Git não versiona diretórios vazios, cada diretório-folha conterá apenas um arquivo `.gitkeep`.
+Criar o esqueleto físico mínimo do `stock-service` em `stock-service/` na raiz do repositório, alinhado às convenções dos serviços NestJS e ao CQRS pragmático já decidido. Como o Git não versiona diretórios vazios, cada diretório-folha conterá apenas um arquivo `.gitkeep`.
 
 ## Estrutura
 
 ```text
-services/
-└── stock-service/
-    ├── prisma/
-    │   └── migrations/
-    └── src/
-        ├── shared/
-        │   ├── config/
-        │   ├── database/
-        │   ├── errors/
-        │   ├── health/
-        │   ├── logging/
-        │   └── messaging/
-        └── features/
-            ├── initialize-stock/
-            │   ├── consumers/
-            │   ├── schemas/
-            │   └── tests/
-            ├── receive-stock/
-            │   ├── consumers/
-            │   ├── schemas/
-            │   └── tests/
-            └── adjust-stock/
-                ├── consumers/
-                ├── schemas/
-                └── tests/
+stock-service/
+├── prisma/
+│   └── migrations/
+└── src/
+    ├── shared/
+    │   ├── config/
+    │   ├── database/
+    │   ├── errors/
+    │   ├── health/
+    │   ├── logging/
+    │   └── messaging/
+    └── features/
+        ├── initialize-stock/
+        │   ├── consumers/
+        │   ├── schemas/
+        │   └── tests/
+        ├── receive-stock/
+        │   ├── consumers/
+        │   ├── schemas/
+        │   └── tests/
+        └── adjust-stock/
+            ├── consumers/
+            ├── schemas/
+            └── tests/
 ```
 
 `shared` reserva os pontos de extensão para infraestrutura transversal. Cada diretório diretamente abaixo de `features` é uma slice vertical que reúne a entrada, os schemas e os testes de um único caso de uso. O serviço inteiro já pertence ao domínio de Estoque, portanto não existe um agrupamento redundante `features/stock`.
@@ -50,4 +49,4 @@ Este scaffold não cria arquivos TypeScript, `package.json`, lockfile, configura
 
 ## Verificação
 
-A entrega estará correta quando todos os diretórios-folha existirem, cada um contiver somente `.gitkeep`, `git status` mostrar exclusivamente os placeholders esperados dentro de `services/stock-service`, e nenhum arquivo executável ou de configuração tiver sido introduzido pelo scaffold.
+A entrega estará correta quando todos os diretórios-folha existirem, cada um contiver somente `.gitkeep`, `git status` mostrar exclusivamente os placeholders esperados dentro de `stock-service/`, e nenhum arquivo executável ou de configuração tiver sido introduzido pelo scaffold.
