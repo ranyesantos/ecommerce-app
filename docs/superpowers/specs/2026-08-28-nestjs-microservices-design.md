@@ -41,10 +41,9 @@ inventory-lab/
 ├── pnpm-workspace.yaml
 ├── pnpm-lock.yaml
 ├── platform/
-├── services/
-│   ├── orders-service/
-│   ├── stock-service/
-│   └── payments-service/
+├── orders-service/
+├── stock-service/
+├── payments-service/
 └── packages/
     └── contracts/
 ```
@@ -231,7 +230,7 @@ O resultado não inclui observabilidade avançada, autenticação interna, Outbo
 
 ## 13. Critérios de aceitação do scaffold
 
-1. O serviço está em `services/<nome>-service` e possui seu próprio `package.json`.
+1. O serviço está em `<nome>-service/`, como diretório de primeiro nível, e possui seu próprio `package.json`.
 2. O serviço não contém Git ou lockfile aninhado.
 3. O serviço é reconhecido pelo pnpm workspace do monorepo.
 4. TypeScript compila em modo strict.
@@ -256,4 +255,4 @@ Estas escolhas não bloqueiam a implementação do primeiro serviço Node:
 
 ## 15. Compatibilidade documental
 
-Esta especificação substitui, para a stack dos serviços Node, as referências a Node 20, Fastify, `pg`, Vitest e `packages/core-node` em `2026-08-20-platform-design.md`. Os ADRs de mensageria continuam válidos. Um adendo de ADR deverá registrar formalmente a substituição tecnológica antes de implementar o primeiro serviço real.
+Esta especificação substitui, para a stack e a organização dos serviços Node, as referências a Node 20, Fastify, `pg`, Vitest, `packages/core-node` e ao agrupamento `services/` em `2026-08-20-platform-design.md`. Os ADRs atuais em `docs/ADRs/services/ADRs.md` registram formalmente essa substituição, e os ADRs de mensageria continuam válidos.

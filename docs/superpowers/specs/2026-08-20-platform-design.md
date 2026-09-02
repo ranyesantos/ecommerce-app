@@ -1,9 +1,11 @@
 # platform — Design do sistema
 
 **Data:** 2026-08-21
-**Status:** decisões atualizadas; etapa 1 definida
+**Status:** histórico; etapa 1 definida
 **Fonte dos requisitos:** `application.md`
 **Decisões consolidadas:** [`docs/ADRs/ADRs.md`](../../ADRs/ADRs.md)
+
+> **Nota de compatibilidade:** este documento preserva o desenho original. Para serviços Node, estrutura do monorepo e disponibilidade projetada, prevalecem `docs/ADRs/services/ADRs.md`, `docs/ADRs/ecommerce/ADRs.md` e as especificações posteriores.
 
 ## 1. Contexto e objetivo
 

@@ -1,7 +1,7 @@
 # Decisões dos microsserviços Node
 
-**Atualizado em:** 2026-08-28
-**Status:** desenho tecnológico global aprovado; implementação ainda não iniciada
+**Atualizado em:** 2026-09-02
+**Status:** desenho tecnológico global aprovado; scaffold estrutural do primeiro serviço criado, runtime ainda não iniciado
 **Objetivo:** permitir a continuação em outra sessão sem depender do histórico da conversa.
 
 ## 1. Contexto
@@ -47,10 +47,9 @@ inventory-lab/
 ├── pnpm-workspace.yaml
 ├── pnpm-lock.yaml
 ├── platform/
-├── services/
-│   ├── orders-service/
-│   ├── stock-service/
-│   └── payments-service/
+├── orders-service/
+├── stock-service/
+├── payments-service/
 └── packages/
     └── contracts/
 ```
@@ -61,7 +60,7 @@ Regras do workspace:
 - Existe somente um `pnpm-lock.yaml`, na raiz.
 - Não executar `npm install` ou `bun install` dentro dos serviços.
 - Não usar Nx ou Turborepo inicialmente.
-- Cada serviço será criado manualmente dentro de `services/`, seguindo esta documentação.
+- Cada serviço será criado manualmente em um diretório de primeiro nível na raiz, seguindo esta documentação.
 - O primeiro serviço implementado servirá como referência prática para os próximos.
 - Novos serviços copiarão apenas a estrutura técnica necessária e receberão suas próprias regras de domínio.
 
@@ -99,7 +98,6 @@ Convenções:
 - Uma feature pode usar `PrismaService` diretamente.
 - Repository só é criado quando consultas ou testes justificarem a abstração.
 - `shared/` contém apenas infraestrutura transversal, nunca regras de negócio.
-- Não criar camadas de DDD, Clean Architecture, CQRS ou interfaces sem necessidade concreta.
 - Não haverá `CombinedAppModule`.
 - `pnpm run dev` pode iniciar API e worker juntos para conveniência local, ainda como processos diferentes.
 - Migrations rodam uma vez como etapa do deploy, nunca em cada réplica.
@@ -198,7 +196,7 @@ As decisões tecnológicas globais estão fechadas. Estes itens serão decididos
 
 ## 10. Documentos históricos que precisam de alinhamento
 
-`docs/superpowers/specs/2026-08-20-platform-design.md` ainda menciona Node 20, Fastify, `pg`, Vitest e `packages/core-node`. Essa stack foi substituída por esta decisão. O documento histórico não deve ser usado como fonte tecnológica para novos serviços até receber um adendo.
+`docs/superpowers/specs/2026-08-20-platform-design.md` preserva o desenho histórico que menciona Node 20, Fastify, `pg`, Vitest, `packages/core-node` e Redis como projeção de disponibilidade. Essas escolhas foram substituídas pelos ADRs atuais e pela especificação tecnológica de 2026-08-28; o documento histórico não é fonte vigente para novos serviços nem para a projeção do Catálogo.
 
 Os ADRs continuam divididos em:
 
@@ -215,9 +213,9 @@ Os ADRs continuam divididos em:
 3. Revisar e aprovar a especificação escrita.
 4. Escolher o primeiro serviço Node a ser implementado.
 5. Especificar seu comportamento de domínio sem misturá-lo com decisões dos demais serviços.
-6. Criar manualmente o serviço em `services/` e integrá-lo ao pnpm workspace.
+6. Criar manualmente o serviço em um diretório de primeiro nível e integrá-lo ao pnpm workspace.
 7. Usar o primeiro serviço validado como referência para criar os próximos manualmente.
 
 Prompt sugerido:
 
-> Leia `docs/ADRs/services/ADRs.md` e `docs/superpowers/specs/2026-08-28-nestjs-microservices-design.md`. Continue sem reabrir decisões aprovadas. Escolha o primeiro serviço Node, especifique seu domínio e crie seu scaffold manualmente dentro de `services/`.
+> Leia `docs/ADRs/services/ADRs.md` e `docs/superpowers/specs/2026-08-28-nestjs-microservices-design.md`. Continue sem reabrir decisões aprovadas. Escolha o primeiro serviço Node, especifique seu domínio e crie seu scaffold manualmente em um diretório de primeiro nível na raiz do monorepo.
