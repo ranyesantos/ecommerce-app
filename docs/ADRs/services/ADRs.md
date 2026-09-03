@@ -1,7 +1,7 @@
 # Decisões dos microsserviços Node
 
 **Atualizado em:** 2026-09-02
-**Status:** desenho tecnológico global aprovado; scaffold estrutural do primeiro serviço criado, runtime ainda não iniciado
+**Status:** desenho tecnológico global aprovado; fundação e primeira slice do `stock-service` especificadas, implementação ainda não iniciada
 **Objetivo:** permitir a continuação em outra sessão sem depender do histórico da conversa.
 
 ## 1. Contexto
@@ -132,11 +132,11 @@ Convenções:
 - ACK manual acontece somente após persistir os efeitos locais necessários.
 - Publicação usa publisher confirms.
 - Mensagens possuem envelope e payload versionados.
-- A identidade estável da mensagem — `event_id` nos eventos atuais — e uma Inbox por consumer group garantem idempotência quando o primeiro consumer real nascer.
+- A identidade estável é `command_id` no corpo de comandos ou `event_id` no corpo de eventos, copiada para `message_id` no AMQP. Uma Inbox por consumer garante idempotência.
 - Falhas transitórias seguem retry e depois DLQ.
 - Mensagens inválidas ou falhas permanentes não entram em retry infinito.
 - A topologia continua centralizada nos artefatos RabbitMQ existentes.
-- Outbox transacional permanece adiada até existir requisito de garantia de publicação.
+- Inbox e Outbox transacionais fazem parte do primeiro fluxo entre Catálogo e Stock; cada serviço mantém suas tabelas no próprio PostgreSQL.
 
 ## 6. Tratamento centralizado de erros
 
@@ -179,7 +179,7 @@ A suíte inicial usa testes de feature, sem Docker:
 
 Testes de integração com PostgreSQL/RabbitMQ reais e testes E2E estão adiados. Testcontainers e um Compose de testes não entram no scaffold inicial.
 
-## 9. Decisões que não bloqueiam o scaffold
+## 9. Decisões futuras
 
 As decisões tecnológicas globais estão fechadas. Estes itens serão decididos quando houver requisito concreto:
 
@@ -190,9 +190,8 @@ As decisões tecnológicas globais estão fechadas. Estes itens serão decididos
 - SLOs, métricas, traces, dashboards e alertas;
 - geração automática de clients Laravel;
 - Testcontainers ou Compose para uma futura suíte de integração;
-- Outbox transacional;
 - cache e projeções adicionais;
-- contratos, banco, endpoints e filas específicos de cada domínio.
+- contratos, banco, endpoints e filas dos domínios ainda não especificados.
 
 ## 10. Documentos históricos que precisam de alinhamento
 
@@ -211,11 +210,11 @@ Os ADRs continuam divididos em:
 1. Ler este arquivo e a especificação detalhada vinculada na seção 1.
 2. Não reabrir decisões aprovadas sem um requisito novo.
 3. Revisar e aprovar a especificação escrita.
-4. Escolher o primeiro serviço Node a ser implementado.
-5. Especificar seu comportamento de domínio sem misturá-lo com decisões dos demais serviços.
-6. Criar manualmente o serviço em um diretório de primeiro nível e integrá-lo ao pnpm workspace.
+4. Executar o plano da fundação compartilhada do `stock-service`.
+5. Executar o plano da integração de mensageria do Catálogo.
+6. Executar o plano da slice `initialize-stock`.
 7. Usar o primeiro serviço validado como referência para criar os próximos manualmente.
 
 Prompt sugerido:
 
-> Leia `docs/ADRs/services/ADRs.md` e `docs/superpowers/specs/2026-08-28-nestjs-microservices-design.md`. Continue sem reabrir decisões aprovadas. Escolha o primeiro serviço Node, especifique seu domínio e crie seu scaffold manualmente em um diretório de primeiro nível na raiz do monorepo.
+> Leia `docs/ADRs/services/ADRs.md`, `docs/ADRs/stock/ADRs.md` e `docs/superpowers/specs/2026-09-02-stock-initialization-flow-design.md`. Execute os planos de fundação e inicialização em ordem, sem reabrir decisões aprovadas.

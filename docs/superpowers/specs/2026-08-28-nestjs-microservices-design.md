@@ -122,7 +122,7 @@ Laravel ou serviço → RabbitMQ → worker NestJS
 
 O consumidor pressupõe entrega at-least-once. Efeitos locais precisam ser idempotentes. Quando o primeiro consumer real for implementado, a Inbox terá unicidade por identidade da mensagem e consumer group. O ACK ocorre depois que os efeitos locais necessários forem persistidos. Publicações usam publisher confirms.
 
-Retry com TTL/dead-letter e DLQ continuam seguindo a topologia RabbitMQ central já adotada. Outbox permanece adiada; enquanto não existir, a janela entre commit e publicação deve ser reconhecida nos fluxos que fazem ambos.
+Retry com TTL/dead-letter e DLQ seguem a topologia RabbitMQ central já adotada. Inbox e Outbox passam a ser obrigatórias quando o primeiro fluxo depender de entrega, começando pela integração entre Catálogo e Stock; cada serviço persiste suas próprias tabelas no próprio PostgreSQL.
 
 ## 7. Contratos HTTP
 
@@ -219,14 +219,14 @@ Cada serviço deve ser criado com:
 - Pino;
 - health checks;
 - tratamento centralizado de erros HTTP e RabbitMQ;
-- idempotência demonstrada com fakes e ponto de extensão para Inbox real;
+- Inbox e Outbox reais na persistência da aplicação, demonstradas por fakes na suíte inicial;
 - graceful shutdown;
 - Jest, Supertest, fakes e testes de feature;
 - Dockerfile e `.env.example`;
 - scripts de desenvolvimento, build, execução, teste e migration;
 - README para configurar, executar e remover/adaptar a feature demonstrativa.
 
-O resultado não inclui observabilidade avançada, autenticação interna, Outbox, Nx, Turborepo, Kubernetes ou abstrações de domínio genéricas.
+O resultado não inclui observabilidade avançada, autenticação interna, Nx, Turborepo, Kubernetes ou abstrações de domínio genéricas.
 
 ## 13. Critérios de aceitação do scaffold
 
@@ -249,7 +249,6 @@ Estas escolhas não bloqueiam a implementação do primeiro serviço Node:
 - observabilidade avançada e SLOs;
 - client Laravel gerado;
 - ambiente de testes de integração;
-- Outbox;
 - cache e projeções;
 - modelos, endpoints, eventos, filas e regras de cada domínio.
 

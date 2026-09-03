@@ -21,7 +21,9 @@ Este arquivo reúne as decisões específicas do domínio de Estoque. Decisões 
 
 **Contexto:** o Estoque precisa preservar um histórico imutável e reconstruível sem permitir que duas operações concorrentes reservem a mesma quantidade. A quantidade exibida no Catálogo pode ser eventual, mas decisões de reserva exigem o estado mais recente.
 
-**Decisão:** o Ledger de Estoque é a fonte de verdade e contém Transações de Estoque imutáveis em partidas duplas, cujos Lançamentos de Estoque sempre somam zero. Uma projeção operacional no PostgreSQL é atualizada na mesma transação que o Ledger e os demais efeitos locais, incluindo Reserva e Inbox quando aplicáveis. Operações concorrentes bloqueiam as projeções necessárias com `SELECT ... FOR UPDATE`; operações com vários Itens de Estoque adquirem os locks em ordem determinística. Prisma continua sendo a camada de acesso e transação.
+**Decisão:** o Ledger de Estoque é a fonte de verdade e contém Transações de Estoque imutáveis em partidas duplas. Cada Lançamento de Estoque persiste `quantity > 0` e uma direção `INCREASE` ou `DECREASE`; o delta assinado existe apenas como cálculo. A aplicação garante que os aumentos e reduções de cada Transação tenham o mesmo total e não oferece atualização ou exclusão do Ledger. Triggers de imutabilidade e validação do balanceamento no PostgreSQL ficam adiadas até existir uma suíte com infraestrutura real.
+
+Uma projeção operacional no PostgreSQL é atualizada na mesma transação que o Ledger e os demais efeitos locais, incluindo Reserva, Inbox e Outbox quando aplicáveis. Cada Item de Estoque possui versão monotônica própria, iniciada em `1` e incrementada a cada mudança efetiva de saldo. Operações concorrentes bloqueiam as projeções necessárias com `SELECT ... FOR UPDATE`; operações com vários Itens de Estoque adquirem os locks em ordem determinística. Prisma continua sendo a camada de acesso e transação.
 
 O conjunto inicial de Contas de Estoque é fixo: Disponível, Reservado, Recebimento, Saída Confirmada, Ganho de Ajuste e Perda de Ajuste. A Quantidade Total em Estoque é a soma de Disponível e Reservado; a quantidade que pode ser mostrada no Catálogo e comprometida por uma nova Reserva é Disponível.
 
@@ -47,15 +49,17 @@ O Laravel usa uma Disponibilidade Projetada separada e eventualmente consistente
 
 ## ADR-STK-004 — Item de Estoque nasce por inicialização explícita
 
-**Contexto:** a criação de um Produto no Catálogo não informa se o Estoque deve controlá-lo nem qual é sua quantidade inicial. Criar estoque zero automaticamente a partir de `catalog.product.created` apagaria a diferença entre um Produto ainda não inicializado e um Item de Estoque inicializado sem disponibilidade.
+**Contexto:** cadastrar um Produto e informar sua quantidade inicial é uma única interação para o usuário, mas Produto e Item de Estoque pertencem a contextos diferentes. Colocar quantidade em `catalog.product.created` trataria uma instrução destinada ao Estoque como parte de um fato do Catálogo.
 
-**Decisão:** o Item de Estoque nasce somente por uma Inicialização de Estoque explícita, contendo o `product_id` canônico e uma quantidade inicial inteira maior ou igual a zero. Quantidade zero cria o Item de Estoque e sua projeção sem criar lançamentos de valor zero. Quantidade positiva cria também uma Transação de Estoque de Recebimento para Disponível. O evento `catalog.product.created` não cria estoque automaticamente.
+**Decisão:** o cadastro exige `initial_quantity` inteira entre `0` e `2.147.483.647`. Na mesma transação local que cria o Produto, o Laravel grava na Outbox o comando `stock.item.initialize`, com `product_id` e `initial_quantity`; o Stock não consome `catalog.product.created`. Enquanto não existir outro consumidor concreto, `catalog.product.created` deixa de ser publicado.
+
+Quantidade zero cria o Item de Estoque e sua projeção na versão `1`, sem lançamentos de valor zero. Quantidade positiva cria também uma Transação de Estoque que diminui Recebimento e aumenta Disponível pela mesma quantidade. Lançamentos usam quantidade positiva e direção explícita.
 
 Cada Produto pode ser inicializado uma única vez. A reentrega da mesma mensagem é idempotente e não cria novos lançamentos. Uma nova mensagem de Inicialização para um `product_id` já controlado retorna conflito, mesmo quando repete a quantidade original; reposições e correções usam operações próprias.
 
 Quando `order.created` referencia um Produto sem Item de Estoque inicializado, a tentativa termina deterministicamente com `stock.unavailable` e motivo `ITEM_NOT_INITIALIZED`. Nenhuma Reserva ou lançamento é criado, a mensagem não entra em retry por esse motivo e o Item de Estoque não é inicializado implicitamente. O resultado pode alimentar um alerta operacional.
 
-**Consequências:** o Laravel precisa solicitar a inicialização quando desejar que o Estoque passe a controlar um Produto. A ausência do Item de Estoque significa “não inicializado”, enquanto um Item existente com Quantidade Disponível zero significa “inicializado sem disponibilidade”; ambas impedem a Reserva, mas permanecem distinguíveis no resultado. A unicidade por `product_id` protege contra duas inicializações concorrentes, e a Inbox protege contra reentrega da mesma mensagem.
+**Consequências:** uma única ação do usuário cria o Produto e solicita sua inicialização sem realizar dual write entre bancos. A ausência do Item de Estoque significa “não inicializado”, enquanto um Item existente com Quantidade Disponível zero significa “inicializado sem disponibilidade”. A unicidade por `product_id` protege contra duas inicializações concorrentes, e a Inbox protege contra reentrega do mesmo comando.
 
 ## ADR-STK-005 — Recebimento incremental e Ajuste absoluto
 
@@ -107,7 +111,9 @@ Um resultado indisponível não é uma Reserva rejeitada. Ele preserva a decisã
 
 **Contexto:** Inicialização, Recebimento e Ajuste alteram o estado autoritativo do Estoque, mas são iniciados por interações no Laravel. Uma gravação síncrona nos bancos de Catálogo e Estoque produziria um dual write sem transação distribuída.
 
-**Decisão:** o Laravel envia Inicialização de Estoque, Recebimento de Estoque e Ajuste de Estoque como comandos assíncronos pelo RabbitMQ. Na criação de Produto, o Produto e o comando de Inicialização são persistidos na mesma transação local por meio da Outbox do Laravel. O `stock-service` processa cada comando com Inbox e publica o novo valor absoluto e a versão da Quantidade Disponível por sua própria Outbox. O estado de sincronização da Disponibilidade Projetada permanece pendente até o Catálogo consumir a confirmação.
+**Decisão:** o Laravel envia Inicialização de Estoque, Recebimento de Estoque e Ajuste de Estoque como comandos assíncronos pelo RabbitMQ. Na criação de Produto, o Produto, sua Disponibilidade Projetada em estado `PENDING` e o comando de Inicialização são persistidos na mesma transação local por meio da Outbox do Laravel. O `stock-service` processa cada comando com Inbox e publica por sua própria Outbox o resultado absoluto e versionado.
+
+O sucesso da inicialização publica `stock.item.initialized`, com `product_id`, `available_quantity` e `stock_version`; o Catálogo muda a projeção para `SYNCED`. Uma nova inicialização com outro `command_id` publica `stock.item.initialization_rejected` com código `ITEM_ALREADY_INITIALIZED`; o Catálogo muda a projeção para `FAILED`. Enquanto a projeção não estiver `SYNCED`, a interface e o backend Laravel bloqueiam Recebimento e Ajuste com `STOCK_ITEM_NOT_READY`.
 
 **Consequências:** nenhuma requisição precisa gravar atomicamente em dois bancos e reentregas não repetem movimentos. A interface apresenta um estado intermediário enquanto o Estoque processa o comando, e falhas permanentes precisam ficar visíveis para operação. Laravel passa a atuar como produtor dos comandos e consumer dos fatos de disponibilidade, em processos separados da requisição web quando aplicável.
 

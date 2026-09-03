@@ -16,9 +16,9 @@ Este arquivo reúne decisões de fluxo de negócio do e-commerce que atravessam 
 
 **Contexto:** a quantidade exibida não precisa ser absolutamente precisa, o `stock-service` não deve ser consultado diretamente pelo navegador e o Catálogo precisa compor `getById` sem uma chamada externa por leitura.
 
-**Decisão:** o Laravel mantém a Disponibilidade Projetada em uma tabela separada no PostgreSQL do Catálogo, identificada por `product_id` e contendo quantidade absoluta, versão, estado de sincronização e horário de atualização. Um worker separado do processo web consome mudanças publicadas pelo `stock-service` e aplica somente versões mais recentes.
+**Decisão:** o Laravel mantém a Disponibilidade Projetada na tabela `stock_availability` do PostgreSQL do Catálogo. Ela é identificada por `product_id` e contém `available_quantity`, `stock_version`, `sync_status`, `failure_code`, `last_event_id`, `synced_at` e timestamps. A projeção nasce com quantidade e versão zero em `PENDING`; `stock.item.initialized` aplica a primeira versão e muda o estado para `SYNCED`; `stock.item.initialization_rejected` muda o estado para `FAILED`. Um worker separado do processo web aplica somente versões mais recentes.
 
-Ao criar um Produto com quantidade inicial, o Laravel persiste o Produto e solicita explicitamente a Inicialização de Estoque. Até o Estoque confirmar a mudança por evento, a projeção permanece pendente e não apresenta a quantidade solicitada como fato confirmado.
+Ao criar um Produto com quantidade inicial, o Laravel persiste na mesma transação o Produto, sua projeção pendente e o comando `stock.item.initialize` na Outbox. Até o Estoque confirmar a mudança por evento, a projeção não apresenta a quantidade solicitada como fato confirmado. Recebimentos e ajustes ficam bloqueados na interface e no backend com `STOCK_ITEM_NOT_READY` enquanto o estado não for `SYNCED`.
 
 **Consequências:** `getById` compõe Produto e disponibilidade com uma consulta local, sem tornar o Catálogo autoridade sobre quantidades. A tela pode exibir informação eventual e a reserva real sempre é validada pelo `stock-service`. O Laravel passa a operar um consumer com Inbox, ACK após commit, retry e DLQ. Eventos carregam valor absoluto e versão para tolerar duplicação e reordenação; a projeção pode ser reconstruída a partir desses fatos ou de uma futura sincronização completa.
 

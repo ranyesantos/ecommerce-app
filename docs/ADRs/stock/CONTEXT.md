@@ -7,7 +7,7 @@ Representação mantida pelo contexto de Estoque para controlar um único estoqu
 _Evitar_: Produto em Estoque, Saldo
 
 **Inicialização de Estoque**:
-Instrução explícita e única que cria o Item de Estoque de um Produto com uma quantidade inicial maior ou igual a zero; sua reentrega não repete efeitos, e outra inicialização do mesmo Item é um conflito.
+Instrução explícita e única, enviada pelo Catálogo junto ao cadastro do Produto, que cria seu Item de Estoque com uma quantidade inicial maior ou igual a zero; sua reentrega não repete efeitos, e outra inicialização do mesmo Item é um conflito.
 _Evitar_: Criação Automática, Primeiro Recebimento
 
 **Ledger de Estoque**:
@@ -67,7 +67,7 @@ Transferência atômica de quantidade entre Contas de Estoque, composta por Lan�
 _Evitar_: Alteração de Saldo, Movimento Isolado
 
 **Lançamento de Estoque**:
-Registro imutável que atribui uma quantidade positiva ou negativa a uma Conta de Estoque como parte de exatamente uma Transação de Estoque.
+Registro imutável que aumenta ou diminui uma Conta de Estoque por uma quantidade estritamente positiva como parte de exatamente uma Transação de Estoque. Seu delta assinado é calculado a partir da direção e não é persistido.
 _Evitar_: Delta Avulso
 
 **Reserva**:
