@@ -20,4 +20,16 @@ describe('environmentSchema', () => {
       'stock-service',
     );
   });
+
+  it.each(['', '   '])(
+    'rejects an empty shutdown grace period (%j)',
+    (gracePeriod) => {
+      expect(() =>
+        environmentSchema.parse({
+          ...validEnvironment,
+          SHUTDOWN_GRACE_MS: gracePeriod,
+        }),
+      ).toThrow();
+    },
+  );
 });
