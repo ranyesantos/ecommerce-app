@@ -1,6 +1,6 @@
 import { spawnSync } from 'node:child_process';
 
-const loggerProbe = (record: string) => `
+const loggerProbe = (statement: string) => `
   import { LoggerModule } from './src/shared/logging/logger.module.ts';
   import pinoHttp from 'pino-http';
 
@@ -29,13 +29,13 @@ const loggerProbe = (record: string) => `
       ({ SERVICE_NAME: 'stock-service', LOG_LEVEL: 'info' })[key],
   });
   const logger = pinoHttp({ ...params.pinoHttp, stream: process.stdout });
-  logger.logger.info(${record}, 'logger regression probe');
+  ${statement}
 `;
 
-function runLoggerProbe(record: string) {
+function runLoggerProbe(statement: string) {
   return spawnSync(
     process.execPath,
-    ['--import', 'tsx', '--input-type=module', '-e', loggerProbe(record)],
+    ['--import', 'tsx', '--input-type=module', '-e', loggerProbe(statement)],
     {
       cwd: process.cwd(),
       encoding: 'utf8',
@@ -60,15 +60,15 @@ function assertProbeStarted(result: ReturnType<typeof runLoggerProbe>) {
 
 describe('LoggerModule', () => {
   it('redacts sensitive fields recursively', () => {
-    const result = runLoggerProbe(`{
-      nested: {
-        deeper: {
-          token: 'LEAK_TOKEN',
-          password: 'LEAK_PASSWORD',
-          secret: 'LEAK_SECRET',
+    const result = runLoggerProbe(`logger.logger.info({
+        nested: {
+          deeper: {
+            token: 'LEAK_TOKEN',
+            password: 'LEAK_PASSWORD',
+            secret: 'LEAK_SECRET',
+          },
         },
-      },
-    }`);
+      }, 'logger regression probe');`);
 
     assertProbeStarted(result);
     expect(result.stdout).not.toContain('LEAK_TOKEN');
@@ -77,13 +77,13 @@ describe('LoggerModule', () => {
   });
 
   it('removes query and fragment from request URLs', () => {
-    const result = runLoggerProbe(`{
-      req: {
-        id: 1,
-        method: 'GET',
-        url: 'https://example.test/orders?token=URL_SECRET#fragment',
-      },
-    }`);
+    const result = runLoggerProbe(`logger.logger.info({
+        req: {
+          id: 1,
+          method: 'GET',
+          url: 'https://example.test/orders?token=URL_SECRET#fragment',
+        },
+      }, 'logger regression probe');`);
 
     assertProbeStarted(result);
     const [record] = result.stdout
@@ -91,5 +91,44 @@ describe('LoggerModule', () => {
       .split(/\r?\n/)
       .map((line) => JSON.parse(line));
     expect(record.req.url).toBe('https://example.test/orders');
+  });
+
+  it('redacts sensitive child bindings recursively', () => {
+    const result = runLoggerProbe(`logger.logger
+      .child({
+        nested: {
+          deeper: {
+            token: 'CHILD_LEAK_TOKEN',
+            password: 'CHILD_LEAK_PASSWORD',
+            secret: 'CHILD_LEAK_SECRET',
+          },
+        },
+      })
+      .info('child binding regression probe');`);
+
+    assertProbeStarted(result);
+    expect(result.stdout).not.toContain('CHILD_LEAK_TOKEN');
+    expect(result.stdout).not.toContain('CHILD_LEAK_PASSWORD');
+    expect(result.stdout).not.toContain('CHILD_LEAK_SECRET');
+  });
+
+  it('preserves non-plain structured values', () => {
+    const result = runLoggerProbe(`logger.logger.info({
+        date: new Date('2026-01-02T03:04:05.000Z'),
+        urlValue: new URL('https://example.test/items'),
+        buffer: Buffer.from('hello'),
+      }, 'structured values regression probe');`);
+
+    assertProbeStarted(result);
+    const [record] = result.stdout
+      .trim()
+      .split(/\r?\n/)
+      .map((line) => JSON.parse(line));
+    expect(record.date).toBe('2026-01-02T03:04:05.000Z');
+    expect(record.urlValue).toBe('https://example.test/items');
+    expect(record.buffer).toEqual({
+      type: 'Buffer',
+      data: [104, 101, 108, 108, 111],
+    });
   });
 });

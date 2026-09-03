@@ -1,6 +1,7 @@
 import { Module, type DynamicModule } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { LoggerModule as PinoLoggerModule, type Params } from 'nestjs-pino';
+import pino from 'pino';
 
 import type { Environment } from '../config/environment.schema.js';
 import { ConfigModule } from '../config/config.module.js';
@@ -36,6 +37,11 @@ function sanitizeLogValue(value: unknown, seen = new WeakSet<object>()): unknown
     return value;
   }
 
+  const prototype = Object.getPrototypeOf(value);
+  if (prototype !== Object.prototype && prototype !== null && !Array.isArray(value)) {
+    return value;
+  }
+
   if (seen.has(value)) {
     return '[Circular]';
   }
@@ -60,17 +66,38 @@ function sanitizeLogValue(value: unknown, seen = new WeakSet<object>()): unknown
   return sanitizedObject;
 }
 
+function sanitizeLogLine(line: string): string {
+  const lineEnding = line.endsWith('\r\n')
+    ? '\r\n'
+    : line.endsWith('\n')
+      ? '\n'
+      : '';
+  const json = line.slice(0, line.length - lineEnding.length);
+
+  try {
+    return `${JSON.stringify(sanitizeLogValue(JSON.parse(json)))}${lineEnding}`;
+  } catch {
+    return `${JSON.stringify({ level: 50, msg: 'log sanitization failed' })}${lineEnding}`;
+  }
+}
+
+const safeSerializers = {
+  req: (request: { id?: unknown; method?: unknown; url?: unknown }) => ({
+    id: request.id,
+    method: request.method,
+    url: sanitizeUrl(request.url),
+  }),
+  res: (response: { statusCode?: unknown }) => ({
+    statusCode: response.statusCode,
+  }),
+};
+
 const sensitivePaths = [
   'req.headers.authorization',
   'req.headers.cookie',
   'req.headers["set-cookie"]',
   'headers.authorization',
   'headers.cookie',
-  '*.password',
-  '*.token',
-  '*.secret',
-  '*.payload',
-  '*.body',
   'password',
   'token',
   'secret',
@@ -84,6 +111,58 @@ const sensitivePaths = [
   'RABBITMQ_URL',
 ];
 
+function createPinoLogger(
+  service: string,
+  level: string,
+  role: LoggerRole,
+): pino.Logger {
+  const logger = pino(
+    {
+      level,
+      base: {
+        service,
+        role,
+      },
+      redact: {
+        paths: sensitivePaths,
+        remove: true,
+      },
+      serializers: safeSerializers,
+      hooks: {
+        logMethod(args, method) {
+          method.apply(
+            this,
+            args.map((argument) => sanitizeLogValue(argument)) as Parameters<
+              typeof method
+            >,
+          );
+        },
+        streamWrite: sanitizeLogLine,
+      },
+      formatters: {
+        bindings: (bindings) =>
+          sanitizeLogValue(bindings) as Record<string, unknown>,
+      },
+    },
+    process.stdout,
+  );
+
+  const originalChild = logger.child;
+  logger.child = (function (
+    this: typeof logger,
+    bindings: Record<string, unknown>,
+    options?: Parameters<typeof originalChild>[1],
+  ) {
+    return originalChild.call(
+      this,
+      sanitizeLogValue(bindings) as Record<string, unknown>,
+      options,
+    );
+  }) as typeof logger.child;
+
+  return logger;
+}
+
 @Module({})
 export class LoggerModule {
   static forRoot(role: LoggerRole): DynamicModule {
@@ -96,36 +175,12 @@ export class LoggerModule {
           inject: [ConfigService],
           useFactory: (config: ConfigService<Environment, true>): Params => ({
             pinoHttp: {
-              level: config.getOrThrow('LOG_LEVEL', { infer: true }),
-              stream: process.stdout,
-              base: {
-                service: config.getOrThrow('SERVICE_NAME', { infer: true }),
+              logger: createPinoLogger(
+                config.getOrThrow('SERVICE_NAME', { infer: true }),
+                config.getOrThrow('LOG_LEVEL', { infer: true }),
                 role,
-              },
-              redact: {
-                paths: sensitivePaths,
-                remove: true,
-              },
-              serializers: {
-                req: (request) => ({
-                  id: request.id,
-                  method: request.method,
-                  url: sanitizeUrl(request.url),
-                }),
-                res: (response) => ({
-                  statusCode: response.statusCode,
-                }),
-              },
-              hooks: {
-                logMethod(args, method) {
-                  method.apply(
-                    this,
-                    args.map((argument) => sanitizeLogValue(argument)) as Parameters<
-                      typeof method
-                    >,
-                  );
-                },
-              },
+              ),
+              serializers: safeSerializers,
             },
           }),
         }),
